@@ -1,0 +1,91 @@
+{
+  "name": "mybatis-toolkit-pro",
+  "displayName": "MyBatis Toolkit Pro",
+  "description": "Professional MyBatis development toolkit",
+  "version": "1.0.0",
+  "publisher": "developer",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:xml",
+    "onLanguage:java",
+    "workspaceContains:**/*.xml"
+  ],
+  "main": "./out/extension.js",
+  "repository": "https://github.com/test/test1231.git",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mybatisToolkit.goToMapper",
+        "title": "Go to Mapper Interface"
+      },
+      {
+        "command": "mybatisToolkit.goToXml",
+        "title": "Go to MyBatis XML"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "MyBatis Toolkit Pro",
+      "properties": {
+        "mybatisToolkit.formatting.indentSize": {
+          "type": "number",
+          "default": 2,
+          "description": "Indentation size for SQL formatting."
+        },
+        "mybatisToolkit.navigation.exclude": {
+          "type": "array",
+          "default": [
+            "target",
+            "build",
+            "bin",
+            "out",
+            "dist",
+            "node_modules",
+            ".git"
+          ],
+          "description": "Folders to exclude from indexing."
+        },
+        "mybatisToolkit.highlights.tableNameColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#FFAB70",
+          "description": "Color for SQL Table names (e.g. FROM table)."
+        },
+        "mybatisToolkit.highlights.keywordColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#C586C0",
+          "description": "Color for SQL Keywords (SELECT, WHERE, etc.)."
+        },
+        "mybatisToolkit.highlights.functionColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#DCDCAA",
+          "description": "Color for SQL Functions (COUNT, MAX, etc.)."
+        },
+        "mybatisToolkit.highlights.paramColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#9CDCFE",
+          "description": "Color for MyBatis Parameters (#{...})."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
