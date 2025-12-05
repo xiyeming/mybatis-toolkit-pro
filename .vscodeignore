@@ -1,0 +1,16 @@
+out/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/*.map
+**/*.ts
+tsconfig.json
+webpack.config.js
+node_modules/**
+index.html
+index.tsx
+vite.config.ts
+.env.local
+metadata.json
+!dist/**

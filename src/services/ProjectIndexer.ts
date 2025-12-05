@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { JavaInterface, JavaClass, MapperXml, StatementInfo } from '../types';
+import { JavaInterface, JavaClass, MapperXml, StatementInfo, ResultMapInfo } from '../types';
 import { JavaAstUtils } from '../utils/JavaAstUtils';
 
 export class ProjectIndexer {
@@ -153,14 +153,31 @@ export class ProjectIndexer {
             const namespace = namespaceMatch[1];
             const lines = content.split('\n');
             const statements = new Map<string, StatementInfo>();
+            const resultMaps = new Map<string, ResultMapInfo>();
 
-            const stmtRegex = /<(select|insert|update|delete)\s+id="([^"]+)"/;
+            const stmtRegex = /<(select|insert|update|delete)\s+id="([^"]+)"(?:[^>]*resultMap="([^"]+)")?/;
+            const resultMapRegex = /<resultMap\s+id="([^"]+)"\s+type="([^"]+)"/;
+
             for (let i = 0; i < lines.length; i++) {
-                const match = lines[i].match(stmtRegex);
-                if (match) {
-                    statements.set(match[2], {
-                        id: match[2],
-                        type: match[1] as any,
+                const line = lines[i];
+
+                // Parse Statements
+                const stmtMatch = line.match(stmtRegex);
+                if (stmtMatch) {
+                    statements.set(stmtMatch[2], {
+                        id: stmtMatch[2],
+                        type: stmtMatch[1] as any,
+                        line: i,
+                        resultMap: stmtMatch[3] // Capture resultMap if present
+                    });
+                }
+
+                // Parse ResultMaps
+                const resultMapMatch = line.match(resultMapRegex);
+                if (resultMapMatch) {
+                    resultMaps.set(resultMapMatch[1], {
+                        id: resultMapMatch[1],
+                        type: resultMapMatch[2],
                         line: i
                     });
                 }
@@ -169,7 +186,8 @@ export class ProjectIndexer {
             const xmlInfo: MapperXml = {
                 namespace,
                 fileUri: uri,
-                statements
+                statements,
+                resultMaps
             };
 
             this.xmlMap.set(namespace, xmlInfo);

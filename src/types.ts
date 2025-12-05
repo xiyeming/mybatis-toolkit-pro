@@ -42,12 +42,20 @@ export interface MapperXml {
     namespace: string; // The namespace attribute
     fileUri: vscode.Uri;
     statements: Map<string, StatementInfo>; // ID -> Info
+    resultMaps: Map<string, ResultMapInfo>; // ID -> Info
 }
 
 export interface StatementInfo {
     id: string;
     line: number; // Line number where <select|insert|etc> starts
     type: 'select' | 'insert' | 'update' | 'delete';
+    resultMap?: string; // The ID of the resultMap used
+}
+
+export interface ResultMapInfo {
+    id: string;
+    line: number;
+    type: string; // The Java type it maps to
 }
 
 export interface IndexUpdateEvent {
