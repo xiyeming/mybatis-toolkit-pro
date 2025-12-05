@@ -50,16 +50,16 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(sqlValidationProvider);
     // Trigger validation on active editor change and document change
     if (vscode.window.activeTextEditor) {
-        sqlValidationProvider.updateDiagnostics(vscode.window.activeTextEditor.document);
+        sqlValidationProvider.triggerUpdateDiagnostics(vscode.window.activeTextEditor.document);
     }
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) {
-                sqlValidationProvider.updateDiagnostics(editor.document);
+                sqlValidationProvider.triggerUpdateDiagnostics(editor.document);
             }
         }),
         vscode.workspace.onDidChangeTextDocument(event => {
-            sqlValidationProvider.updateDiagnostics(event.document);
+            sqlValidationProvider.triggerUpdateDiagnostics(event.document);
         })
     );
 

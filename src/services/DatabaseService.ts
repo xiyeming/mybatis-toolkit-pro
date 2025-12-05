@@ -16,6 +16,7 @@ export class DatabaseService {
     private pool: mysql.Pool | undefined;
     private outputChannel: vscode.OutputChannel;
     private tableCache: Set<string> = new Set();
+    private schemaCache: Map<string, ColumnInfo[]> = new Map();
     private connectionConfig: any = {};
     private _onDidReady = new vscode.EventEmitter<void>();
     public readonly onDidReady = this._onDidReady.event;
@@ -62,6 +63,7 @@ export class DatabaseService {
             this.pool = undefined;
         }
         this.tableCache.clear();
+        this.schemaCache.clear();
         await this.init();
     }
 
@@ -92,6 +94,7 @@ export class DatabaseService {
         try {
             const [rows] = await this.pool.query<mysql.RowDataPacket[]>('SHOW TABLES');
             this.tableCache.clear();
+            this.schemaCache.clear(); // Clear schema cache on refresh
             rows.forEach(row => {
                 const tableName = Object.values(row)[0] as string;
                 this.tableCache.add(tableName);
@@ -108,9 +111,15 @@ export class DatabaseService {
 
     public async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.pool) return [];
+        if (this.schemaCache.has(tableName)) {
+            return this.schemaCache.get(tableName)!;
+        }
+
         try {
             const [rows] = await this.pool.query<mysql.RowDataPacket[]>(`SHOW FULL COLUMNS FROM ${mysql.escapeId(tableName)}`);
-            return rows as ColumnInfo[];
+            const columns = rows as ColumnInfo[];
+            this.schemaCache.set(tableName, columns);
+            return columns;
         } catch (error: any) {
             this.outputChannel.appendLine(`Failed to get schema for ${tableName}: ${error.message}`);
             return [];

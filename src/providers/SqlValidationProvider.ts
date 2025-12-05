@@ -5,6 +5,7 @@ import { SQL_KEYWORDS, SQL_FUNCTIONS } from '../constants';
 export class SqlValidationProvider implements vscode.Disposable {
     private diagnosticCollection: vscode.DiagnosticCollection;
     private dbService: DatabaseService;
+    private timeout: NodeJS.Timeout | undefined = undefined;
 
     constructor(dbService: DatabaseService) {
         this.dbService = dbService;
@@ -13,13 +14,21 @@ export class SqlValidationProvider implements vscode.Disposable {
         // Re-validate when DB is ready
         this.dbService.onDidReady(() => {
             if (vscode.window.activeTextEditor) {
-                this.updateDiagnostics(vscode.window.activeTextEditor.document);
+                this.triggerUpdateDiagnostics(vscode.window.activeTextEditor.document);
             }
             // Also update for all visible editors
             vscode.window.visibleTextEditors.forEach(editor => {
-                this.updateDiagnostics(editor.document);
+                this.triggerUpdateDiagnostics(editor.document);
             });
         });
+    }
+
+    public triggerUpdateDiagnostics(document: vscode.TextDocument) {
+        if (this.timeout) {
+            clearTimeout(this.timeout);
+            this.timeout = undefined;
+        }
+        this.timeout = setTimeout(() => this.updateDiagnostics(document), 500);
     }
 
     public async updateDiagnostics(document: vscode.TextDocument) {
