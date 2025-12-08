@@ -208,4 +208,23 @@ export class ProjectIndexer {
     public getClassByFullName(fullName: string): JavaClass | undefined {
         return this.dtoMap.get(fullName);
     }
+
+    public getMapperPath(fullName: string): string | undefined {
+        const xml = this.getXmlByInterface(fullName);
+        return xml ? xml.fileUri.toString() : undefined;
+    }
+
+    public getJavaFileUri(fullName: string): vscode.Uri | undefined {
+        const java = this.javaMap.get(fullName);
+        return java ? java.fileUri : undefined;
+    }
+
+    public getClassByFileUri(uri: vscode.Uri): JavaInterface | undefined {
+        for (const [key, val] of this.javaMap) {
+            if (val.fileUri.toString() === uri.toString()) {
+                return val;
+            }
+        }
+        return undefined;
+    }
 }

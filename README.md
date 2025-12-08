@@ -29,6 +29,18 @@
     -   **嵌套验证**：正确处理嵌套 `<association>` 和 `<collection>` 标签中的属性验证。
     -   **ResultMap 白名单**：自动识别 `resultMap` 中显式映射的列，避免误报。
 
+### 5. 代码生成器 (Code Generator)
+-   **从数据库生成代码**：右键点击数据库表，选择 "Generate Code"，自动生成 Entity、Mapper 接口和 XML 文件。
+    -   自动映射数据类型。
+    -   支持 Lombok 注解。
+    -   包含基础 CRUD 操作。
+
+### 6. 方法名生成 SQL (Generate SQL from Method)
+-   **智能 SQL 生成**：在 Mapper 接口中编写方法名（如 `selectUserByNameAndAge`），点击灯泡图标（Quick Fix），自动生成对应的 XML SQL 语句。
+    -   支持 `select`, `update`, `delete`, `count`, `insert` 前缀。
+    -   支持 `And`, `Or` 多条件连接。
+    -   支持 `Like`, `In` 等后缀。
+
 ## 需求
 
 -   **VS Code**：版本 1.90.0 或更高。

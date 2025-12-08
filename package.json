@@ -88,136 +88,135 @@
           "group": "navigation"
         }
       ],
-    ],
-    "view/item/context": [
-      {
-        "command": "mybatisToolkit.connect",
-        "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && !mybatisToolkit.connected",
-        "group": "inline"
-      },
-      {
-        "command": "mybatisToolkit.disconnect",
-        "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && mybatisToolkit.connected",
-        "group": "inline"
-      },
-      {
-        "command": "mybatisToolkit.generateCode",
-        "when": "view == mybatisToolkit.databaseExplorer && viewItem == table",
-        "group": "1_modification"
-      },
-      {
-        "command": "mybatisToolkit.removeConnection",
-        "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection",
-        "group": "1_modification"
-      }
-    ]
-  },
-  "configuration": {
-    "type": "object",
-    "title": "MyBatis Toolkit Pro",
-    "properties": {
-      "mybatisToolkit.formatting.indentSize": {
-        "type": "number",
-        "default": 2,
-        "description": "Indentation size for SQL formatting."
-      },
-      "mybatisToolkit.navigation.exclude": {
-        "type": "array",
-        "default": [
-          "target",
-          "build",
-          "bin",
-          "out",
-          "dist",
-          "node_modules",
-          ".git"
-        ],
-        "description": "Folders to exclude from indexing."
-      },
-      "mybatisToolkit.highlights.tableNameColor": {
-        "type": "string",
-        "format": "color-hex",
-        "default": "#FFAB70",
-        "description": "Color for SQL Table names (e.g. FROM table)."
-      },
-      "mybatisToolkit.highlights.keywordColor": {
-        "type": "string",
-        "format": "color-hex",
-        "default": "#C586C0",
-        "description": "Color for SQL Keywords (SELECT, WHERE, etc.)."
-      },
-      "mybatisToolkit.highlights.functionColor": {
-        "type": "string",
-        "format": "color-hex",
-        "default": "#DCDCAA",
-        "description": "Color for SQL Functions (COUNT, MAX, etc.)."
-      },
-      "mybatisToolkit.highlights.paramColor": {
-        "type": "string",
-        "format": "color-hex",
-        "default": "#9CDCFE",
-        "description": "Color for MyBatis Parameters (#{...})."
-      },
-      "mybatisToolkit.database.host": {
-        "type": "string",
-        "default": "localhost",
-        "description": "Database Host"
-      },
-      "mybatisToolkit.database.port": {
-        "type": "number",
-        "default": 3306,
-        "description": "Database Port"
-      },
-      "mybatisToolkit.database.user": {
-        "type": "string",
-        "default": "root",
-        "description": "Database User"
-      },
-      "mybatisToolkit.database.password": {
-        "type": "string",
-        "default": "",
-        "description": "Database Password"
-      },
-      "mybatisToolkit.database.database": {
-        "type": "string",
-        "default": "",
-        "description": "Database Name"
-      },
-      "mybatisToolkit.database.connectionLimit": {
-        "type": "number",
-        "default": 10,
-        "description": "Database Connection Pool Limit"
-      },
-      "mybatisToolkit.validation.enable": {
-        "type": "boolean",
-        "default": true,
-        "description": "Enable SQL Table Validation"
+      "view/item/context": [
+        {
+          "command": "mybatisToolkit.connect",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && !mybatisToolkit.connected",
+          "group": "inline"
+        },
+        {
+          "command": "mybatisToolkit.disconnect",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && mybatisToolkit.connected",
+          "group": "inline"
+        },
+        {
+          "command": "mybatisToolkit.generateCode",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == table",
+          "group": "1_modification"
+        },
+        {
+          "command": "mybatisToolkit.removeConnection",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "MyBatis Toolkit Pro",
+      "properties": {
+        "mybatisToolkit.formatting.indentSize": {
+          "type": "number",
+          "default": 2,
+          "description": "Indentation size for SQL formatting."
+        },
+        "mybatisToolkit.navigation.exclude": {
+          "type": "array",
+          "default": [
+            "target",
+            "build",
+            "bin",
+            "out",
+            "dist",
+            "node_modules",
+            ".git"
+          ],
+          "description": "Folders to exclude from indexing."
+        },
+        "mybatisToolkit.highlights.tableNameColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#FFAB70",
+          "description": "Color for SQL Table names (e.g. FROM table)."
+        },
+        "mybatisToolkit.highlights.keywordColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#C586C0",
+          "description": "Color for SQL Keywords (SELECT, WHERE, etc.)."
+        },
+        "mybatisToolkit.highlights.functionColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#DCDCAA",
+          "description": "Color for SQL Functions (COUNT, MAX, etc.)."
+        },
+        "mybatisToolkit.highlights.paramColor": {
+          "type": "string",
+          "format": "color-hex",
+          "default": "#9CDCFE",
+          "description": "Color for MyBatis Parameters (#{...})."
+        },
+        "mybatisToolkit.database.host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Database Host"
+        },
+        "mybatisToolkit.database.port": {
+          "type": "number",
+          "default": 3306,
+          "description": "Database Port"
+        },
+        "mybatisToolkit.database.user": {
+          "type": "string",
+          "default": "root",
+          "description": "Database User"
+        },
+        "mybatisToolkit.database.password": {
+          "type": "string",
+          "default": "",
+          "description": "Database Password"
+        },
+        "mybatisToolkit.database.database": {
+          "type": "string",
+          "default": "",
+          "description": "Database Name"
+        },
+        "mybatisToolkit.database.connectionLimit": {
+          "type": "number",
+          "default": 10,
+          "description": "Database Connection Pool Limit"
+        },
+        "mybatisToolkit.validation.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable SQL Table Validation"
+        }
       }
     }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@dbcode/vscode-api": "^1.1.1",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.0.0",
+    "vscode": "npm:@types/vscode@^1.90.0",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "mysql2": "^3.15.3"
   }
-},
-"scripts": {
-  "vscode:prepublish": "npm run package",
-  "compile": "webpack",
-  "watch": "webpack --watch",
-  "package": "webpack --mode production --devtool hidden-source-map",
-  "compile-tests": "tsc -p . --outDir out",
-  "watch-tests": "tsc -p . -w --outDir out",
-  "pretest": "npm run compile-tests && npm run compile && npm run lint",
-  "lint": "eslint src --ext ts",
-  "test": "node ./out/test/runTest.js"
-},
-"devDependencies": {
-  "@dbcode/vscode-api": "^1.1.1",
-  "@types/node": "^20.0.0",
-  "@types/vscode": "^1.90.0",
-  "ts-loader": "^9.5.4",
-  "typescript": "^5.0.0",
-  "vscode": "npm:@types/vscode@^1.90.0",
-  "webpack": "^5.103.0",
-  "webpack-cli": "^6.0.1"
-},
-"dependencies": {
-  "mysql2": "^3.15.3"
-}
 }

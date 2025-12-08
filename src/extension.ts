@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ProjectIndexer } from './services/ProjectIndexer';
 import { MyBatisCodeLensProvider } from './providers/MyBatisCodeLensProvider';
+import { MapperIntentionProvider } from './providers/MapperIntentionProvider';
 import { SqlFormattingProvider } from './providers/SqlFormattingProvider';
 import { DecorationProvider } from './providers/DecorationProvider';
 import { DatabaseService } from './services/DatabaseService';
@@ -10,6 +11,7 @@ import { PropertyDefinitionProvider } from './providers/PropertyDefinitionProvid
 import { SchemaDocumentProvider } from './providers/SchemaDocumentProvider';
 import { DatabaseTreeDataProvider, ConnectionItem, TableItem } from './providers/DatabaseTreeDataProvider';
 import { CodeGenerationService } from './services/CodeGenerationService';
+import { MethodSqlGenerator } from './services/MethodSqlGenerator';
 
 export function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel("MyBatis Toolkit");
@@ -26,12 +28,21 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 2. Register Providers
     const codeLensProvider = new MyBatisCodeLensProvider(indexer);
+    const mapperIntentionProvider = new MapperIntentionProvider(indexer);
     const formatProvider = new SqlFormattingProvider();
     const decorationProvider = new DecorationProvider(indexer);
     const sqlValidationProvider = new SqlValidationProvider(dbService, indexer);
     const sqlDefinitionProvider = new SqlDefinitionProvider(dbService, indexer);
     const propertyDefinitionProvider = new PropertyDefinitionProvider(indexer);
     const schemaProvider = new SchemaDocumentProvider(dbService);
+
+    // 0. Code Action (Generate XML)
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider(
+            { language: 'java', scheme: 'file' },
+            mapperIntentionProvider
+        )
+    );
 
     // CodeLens
     context.subscriptions.push(

@@ -24,6 +24,8 @@ cd mybatis-toolkit-pro
 ### 2.2 安装依赖
 
 ```bash
+rm -rf node_modules out mybatis-toolkit-pro-1.0.0.vsix package-lock.json dist index.tsx index.html metadata.json vite.config.ts
+
 npm install
 ```
 

@@ -228,4 +228,14 @@ export class JavaAstUtils {
     public static normalizePath(fsPath: string): string {
         return fsPath.replace(/\\/g, '/').toLowerCase();
     }
+
+    /**
+     * Extracts method name from a signature line.
+     */
+    public static getMethodName(line: string): string | null {
+        // Match: public ResultType methodName(...)
+        // Or interface: ResultType methodName(...)
+        const match = line.match(/^\s*(?:public\s+|abstract\s+)?(?:[\w<>,\[\]]+\s+)+(\w+)\s*\(/);
+        return match ? match[1] : null;
+    }
 }
