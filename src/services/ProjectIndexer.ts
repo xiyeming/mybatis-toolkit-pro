@@ -38,14 +38,10 @@ export class ProjectIndexer {
         const excludePattern = `**/{${excludes.join(',')}}/**`;
 
         const javaFiles = await vscode.workspace.findFiles('**/*.java', excludePattern);
-        for (const file of javaFiles) {
-            await this.parseJavaFile(file);
-        }
+        await Promise.all(javaFiles.map(file => this.parseJavaFile(file)));
 
         const xmlFiles = await vscode.workspace.findFiles('**/*.xml', excludePattern);
-        for (const file of xmlFiles) {
-            await this.parseXmlFile(file);
-        }
+        await Promise.all(xmlFiles.map(file => this.parseXmlFile(file)));
 
         this.outputChannel.appendLine(`[Indexer] Scan complete in ${Date.now() - start}ms. Mappers: ${this.javaMap.size}, DTOs: ${this.dtoMap.size}, XML: ${this.xmlMap.size}`);
         this._onDidUpdateIndex.fire();
@@ -128,11 +124,16 @@ export class ProjectIndexer {
             } else {
                 // It's a Class (DTO, Entity)
                 const fields = JavaAstUtils.getFields(content);
+                const imports = JavaAstUtils.getImports(content); // Also capture imports for Classes
+                const parentClassName = JavaAstUtils.getParentClassName(content); // Capture parent class
+
                 const javaClass: JavaClass = {
                     name: simpleName,
                     fullName: fullName,
                     fileUri: uri,
-                    fields: fields
+                    fields: fields,
+                    parentClassName: parentClassName || undefined,
+                    imports: imports
                 };
                 this.dtoMap.set(fullName, javaClass);
             }

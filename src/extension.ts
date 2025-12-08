@@ -6,7 +6,9 @@ import { DecorationProvider } from './providers/DecorationProvider';
 import { DatabaseService } from './services/DatabaseService';
 import { SqlValidationProvider } from './providers/SqlValidationProvider';
 import { SqlDefinitionProvider } from './providers/SqlDefinitionProvider';
+import { PropertyDefinitionProvider } from './providers/PropertyDefinitionProvider';
 import { SchemaDocumentProvider } from './providers/SchemaDocumentProvider';
+import { DatabaseTreeDataProvider, ConnectionItem } from './providers/DatabaseTreeDataProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel("MyBatis Toolkit");
@@ -23,8 +25,9 @@ export function activate(context: vscode.ExtensionContext) {
     const codeLensProvider = new MyBatisCodeLensProvider(indexer);
     const formatProvider = new SqlFormattingProvider();
     const decorationProvider = new DecorationProvider(indexer);
-    const sqlValidationProvider = new SqlValidationProvider(dbService);
+    const sqlValidationProvider = new SqlValidationProvider(dbService, indexer);
     const sqlDefinitionProvider = new SqlDefinitionProvider(dbService, indexer);
+    const propertyDefinitionProvider = new PropertyDefinitionProvider(indexer);
     const schemaProvider = new SchemaDocumentProvider(dbService);
 
     // CodeLens
@@ -79,6 +82,14 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
+    // XML Property Definition
+    context.subscriptions.push(
+        vscode.languages.registerDefinitionProvider(
+            { language: 'xml' },
+            propertyDefinitionProvider
+        )
+    );
+
     // 3. Register Commands (must match package.json)
     context.subscriptions.push(
         vscode.commands.registerCommand('mybatisToolkit.goToMapper', (uri: vscode.Uri) => {
@@ -89,6 +100,66 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('mybatisToolkit.goToXml', (uri: vscode.Uri) => {
             vscode.window.showTextDocument(uri);
+        })
+    );
+
+    // Database Explorer
+    const treeProvider = new DatabaseTreeDataProvider(dbService);
+    context.subscriptions.push(
+        vscode.window.registerTreeDataProvider('mybatisToolkit.databaseExplorer', treeProvider)
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mybatisToolkit.addConnection', async () => {
+            const host = await vscode.window.showInputBox({ prompt: 'Database Host', placeHolder: 'localhost', value: 'localhost' });
+            if (!host) return;
+            const portStr = await vscode.window.showInputBox({ prompt: 'Database Port', placeHolder: '3306', value: '3306' });
+            if (!portStr) return;
+            const user = await vscode.window.showInputBox({ prompt: 'Database User', placeHolder: 'root', value: 'root' });
+            if (!user) return;
+            const password = await vscode.window.showInputBox({ prompt: 'Database Password', password: true });
+            if (password === undefined) return;
+            const database = await vscode.window.showInputBox({ prompt: 'Database Name' });
+            if (!database) return;
+
+            const config = {
+                id: Date.now().toString(),
+                name: database,
+                host,
+                port: parseInt(portStr),
+                user,
+                password,
+                database
+            };
+
+            await dbService.addConnection(config);
+            // Optionally auto-connect
+            // await dbService.connect(config.id);
+        }),
+        vscode.commands.registerCommand('mybatisToolkit.removeConnection', async (item: ConnectionItem) => {
+            if (item && item.config) {
+                const answer = await vscode.window.showWarningMessage(`Are you sure you want to remove ${item.config.name}?`, 'Yes', 'No');
+                if (answer === 'Yes') {
+                    await dbService.removeConnection(item.config.id);
+                }
+            }
+        }),
+        vscode.commands.registerCommand('mybatisToolkit.connect', async (item: ConnectionItem) => {
+            if (item && item.config) {
+                await dbService.connect(item.config.id);
+                vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', true);
+            }
+        }),
+        vscode.commands.registerCommand('mybatisToolkit.disconnect', async () => {
+            await dbService.disconnect();
+            vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', false);
+        }),
+        vscode.commands.registerCommand('mybatisToolkit.refresh', async () => {
+            await dbService.refreshTables();
+        }),
+        vscode.commands.registerCommand('mybatisToolkit.openTableSchema', async (tableName: string) => {
+            const uri = vscode.Uri.parse(`${SchemaDocumentProvider.scheme}:///${tableName}.md`);
+            await vscode.window.showTextDocument(uri);
         })
     );
 

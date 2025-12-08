@@ -1,38 +1,28 @@
 import * as vscode from 'vscode';
 import * as mysql from 'mysql2/promise';
+import { ColumnInfo, ConnectionConfig } from '../types';
 
-export interface ColumnInfo {
-    Field: string;
-    Type: string;
-    Null: string;
-    Key: string;
-    Default: string | null;
-    Extra: string;
-    Comment?: string;
-}
+
 
 export class DatabaseService {
     private static instance: DatabaseService;
-    private pool: mysql.Pool | undefined;
-    private outputChannel: vscode.OutputChannel;
-    private tableCache: Set<string> = new Set();
+    private connections: ConnectionConfig[] = [];
+    private activeConnectionId: string | undefined;
+    private activePool: mysql.Pool | undefined;
+
+    // Caches are now specific to the active connection
+    private tableCache: Map<string, string> = new Map(); // Table Name -> Comment
     private schemaCache: Map<string, ColumnInfo[]> = new Map();
-    private connectionConfig: any = {};
+
+    private outputChannel: vscode.OutputChannel;
     private _onDidReady = new vscode.EventEmitter<void>();
     public readonly onDidReady = this._onDidReady.event;
-    private isReadyFlag = false;
+    private _onDidConfigChange = new vscode.EventEmitter<void>();
+    public readonly onDidConfigChange = this._onDidConfigChange.event;
 
     private constructor() {
         this.outputChannel = vscode.window.createOutputChannel("MyBatis Database");
-        this.loadConfig();
-
-        // Reload config on change
-        vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('mybatisToolkit.database')) {
-                this.loadConfig();
-                this.reconnect();
-            }
-        });
+        this.loadConnections();
     }
 
     public static getInstance(): DatabaseService {
@@ -42,62 +32,130 @@ export class DatabaseService {
         return DatabaseService.instance;
     }
 
-    private loadConfig() {
-        const config = vscode.workspace.getConfiguration('mybatisToolkit.database');
-        this.connectionConfig = {
-            host: config.get<string>('host'),
-            port: config.get<number>('port'),
-            user: config.get<string>('user'),
-            password: config.get<string>('password'),
-            database: config.get<string>('database'),
-            waitForConnections: true,
-            connectionLimit: config.get<number>('connectionLimit', 10),
-            queueLimit: 0
-        };
+    // ... [omitted loadConnections, add/remove/save methods] ...
+
+    // (Assume other methods are unchanged up to refreshTables)
+
+    // I need to be careful with replace_file_content scope. 
+    // It's safer to target specific blocks.
+    // Let's replace the properties and refreshTables method.
+
+
+    private loadConnections() {
+        const config = vscode.workspace.getConfiguration('mybatisToolkit');
+        this.connections = config.get<ConnectionConfig[]>('connections', []);
+
+        // Load potentially existing legacy config as a connection if no connections exist
+        if (this.connections.length === 0) {
+            const dbConfig = vscode.workspace.getConfiguration('mybatisToolkit.database');
+            if (dbConfig.get('host') && dbConfig.get('database')) {
+                const legacy: ConnectionConfig = {
+                    id: 'default',
+                    name: 'Default',
+                    host: dbConfig.get('host', 'localhost'),
+                    port: dbConfig.get('port', 3306),
+                    user: dbConfig.get('user', 'root'),
+                    password: dbConfig.get('password', ''),
+                    database: dbConfig.get('database', '')
+                };
+                this.addConnection(legacy);
+            }
+        }
     }
 
-    private async reconnect() {
-        this.isReadyFlag = false;
-        if (this.pool) {
-            await this.pool.end();
-            this.pool = undefined;
+    public getConnections(): ConnectionConfig[] {
+        return this.connections;
+    }
+
+    public async addConnection(config: ConnectionConfig) {
+        this.connections.push(config);
+        await this.saveConnections();
+    }
+
+    public async removeConnection(id: string) {
+        this.connections = this.connections.filter(c => c.id !== id);
+        if (this.activeConnectionId === id) {
+            await this.disconnect();
         }
+        await this.saveConnections();
+    }
+
+    private async saveConnections() {
+        const config = vscode.workspace.getConfiguration('mybatisToolkit');
+        await config.update('connections', this.connections, vscode.ConfigurationTarget.Global);
+        this._onDidConfigChange.fire();
+    }
+
+    public async connect(id: string) {
+        const config = this.connections.find(c => c.id === id);
+        if (!config) return;
+
+        await this.disconnect();
+
+        this.outputChannel.appendLine(`Connecting to ${config.name} (${config.host})...`);
+        try {
+            this.activePool = mysql.createPool({
+                host: config.host,
+                port: config.port,
+                user: config.user,
+                password: config.password,
+                database: config.database,
+                waitForConnections: true,
+                connectionLimit: 10,
+                queueLimit: 0
+            });
+
+            // Test connection
+            const connection = await this.activePool.getConnection();
+            connection.release();
+
+            this.activeConnectionId = id;
+            this.outputChannel.appendLine(`Connected to database: ${config.database}`);
+
+            await this.refreshTables();
+            this._onDidReady.fire();
+            this._onDidConfigChange.fire(); // Notify UI to update icons
+        } catch (error: any) {
+            this.outputChannel.appendLine(`Failed to connect to ${config.name}: ${error.message}`);
+            vscode.window.showErrorMessage(`Failed to connect to ${config.name}: ${error.message}`);
+            this.activePool = undefined;
+            this.activeConnectionId = undefined;
+        }
+    }
+
+    public async disconnect() {
+        if (this.activePool) {
+            await this.activePool.end();
+            this.activePool = undefined;
+        }
+        this.activeConnectionId = undefined;
         this.tableCache.clear();
         this.schemaCache.clear();
-        await this.init();
+        this._onDidConfigChange.fire();
+    }
+
+    public getActiveConnectionId(): string | undefined {
+        return this.activeConnectionId;
     }
 
     public async init() {
-        this.isReadyFlag = false;
-        if (!this.connectionConfig.host || !this.connectionConfig.user || !this.connectionConfig.database) {
-            this.outputChannel.appendLine('Database configuration missing. Please configure mybatisToolkit.database settings.');
-            return;
-        }
-
-        try {
-            this.pool = mysql.createPool(this.connectionConfig);
-            // Test connection
-            const connection = await this.pool.getConnection();
-            this.outputChannel.appendLine(`Connected to database: ${this.connectionConfig.database}`);
-            connection.release();
-
-            await this.refreshTables();
-            this.isReadyFlag = true;
-            this._onDidReady.fire();
-        } catch (error: any) {
-            this.outputChannel.appendLine(`Failed to connect to database: ${error.message}`);
+        // Auto-connect to the first available connection or last used (todo)
+        if (this.connections.length > 0) {
+            // await this.connect(this.connections[0].id);
         }
     }
 
     public async refreshTables() {
-        if (!this.pool) return;
+        if (!this.activePool) return;
         try {
-            const [rows] = await this.pool.query<mysql.RowDataPacket[]>('SHOW TABLES');
+            // SHOW TABLE STATUS returns Name, Comment, etc.
+            const [rows] = await this.activePool.query<mysql.RowDataPacket[]>('SHOW TABLE STATUS');
             this.tableCache.clear();
-            this.schemaCache.clear(); // Clear schema cache on refresh
+            this.schemaCache.clear();
             rows.forEach(row => {
-                const tableName = Object.values(row)[0] as string;
-                this.tableCache.add(tableName);
+                const tableName = row['Name'];
+                const comment = row['Comment'] || '';
+                this.tableCache.set(tableName, comment);
             });
             this.outputChannel.appendLine(`Refreshed ${this.tableCache.size} tables.`);
         } catch (error: any) {
@@ -109,14 +167,22 @@ export class DatabaseService {
         return this.tableCache.has(tableName);
     }
 
+    public async getTableNames(): Promise<string[]> {
+        return Array.from(this.tableCache.keys());
+    }
+
+    public getTableComment(tableName: string): string | undefined {
+        return this.tableCache.get(tableName);
+    }
+
     public async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
-        if (!this.pool) return [];
+        if (!this.activePool) return [];
         if (this.schemaCache.has(tableName)) {
             return this.schemaCache.get(tableName)!;
         }
 
         try {
-            const [rows] = await this.pool.query<mysql.RowDataPacket[]>(`SHOW FULL COLUMNS FROM ${mysql.escapeId(tableName)}`);
+            const [rows] = await this.activePool.query<mysql.RowDataPacket[]>(`SHOW FULL COLUMNS FROM ${mysql.escapeId(tableName)}`);
             const columns = rows as ColumnInfo[];
             this.schemaCache.set(tableName, columns);
             return columns;
@@ -127,10 +193,9 @@ export class DatabaseService {
     }
 
     public async getCreateTableStatement(tableName: string): Promise<string> {
-        if (!this.pool) return '';
+        if (!this.activePool) return '';
         try {
-            const [rows] = await this.pool.query<mysql.RowDataPacket[]>(`SHOW CREATE TABLE ${mysql.escapeId(tableName)}`);
-            // row is { Table: 'tablename', 'Create Table': 'CREATE TABLE ...' }
+            const [rows] = await this.activePool.query<mysql.RowDataPacket[]>(`SHOW CREATE TABLE ${mysql.escapeId(tableName)}`);
             if (rows.length > 0 && rows[0]['Create Table']) {
                 return rows[0]['Create Table'];
             }
@@ -142,10 +207,10 @@ export class DatabaseService {
     }
 
     public isConnected(): boolean {
-        return !!this.pool;
+        return !!this.activePool;
     }
 
     public isReady(): boolean {
-        return this.isReadyFlag;
+        return !!this.activePool && this.tableCache.size > 0;
     }
 }

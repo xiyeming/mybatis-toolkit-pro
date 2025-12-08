@@ -7,22 +7,27 @@ Professional MyBatis development toolkit for VS Code, designed to boost your pro
 ## Features
 
 ### 1. Smart Navigation
--   **Jump to Definition**: Click on a table name in your XML mapper to jump to its definition (requires Database Client integration).
--   **CodeLens**:
-    -   **Java Interface**: Quickly jump to the corresponding XML mapper file.
-    -   **XML Mapper**: Quickly jump to the corresponding Java interface method.
+-   **Go to Definition**:
+    -   **Table Names**: Click on a table name in XML to jump to a schema view.
+    -   **ResultMap Properties**: Cmd+Click (Ctrl+Click) on `property` attributes in `<resultMap>` to jump to the Java field definition.
 
 ### 2. Rich SQL Highlighting
 -   **Enhanced Syntax Highlighting**: Full support for SQL keywords, functions, and MyBatis parameters (`#{...}`, `${...}`).
--   **Comprehensive Coverage**: Includes highlighting for hundreds of MySQL keywords (e.g., `DESC`, `ASC`, `INTERVAL`) and functions (e.g., `DATE_SUB`, `NOW`, `IF`).
--   **Customizable Colors**: Configure colors for table names, keywords, functions, and parameters in VS Code settings.
+-   **Comprehensive Coverage**: Includes highlighting for hundreds of MySQL keywords and functions.
 
-### 3. Database Support
--   **Standalone Support**: Built-in MySQL support for table validation and schema viewing.
--   **SQL Validation**: Real-time validation of table names in your XML mappers against your configured database.
--   **Go to Definition**: Jump directly to a virtual schema view of the table.
+### 3. Database Explorer & Multi-Datasource
+-   **Multiple Connections**: Manage multiple MySQL connections from the sidebar (Host, Port, User, Password, Database).
+-   **Virtual Schema View**: View table definitions and **comments** directly in VS Code.
+-   **Comments Display**: Table and column comments are shown in the Database Explorer tree.
 
-### 4. Code Formatting
+### 4. Advanced Validation
+-   **SQL Validation**: Real-time validation of table names and columns in your SQL.
+-   **Type Safety**:
+    -   **Result Mapping**: Checks if fields in `resultMap` and `resultType` actually exist in the corresponding Java class.
+    -   **SQL Return Types**: Validates that columns selected in SQL match the properties of the Java return type (handles snake_case to camelCase conversion automatically).
+    -   **Nested Validations**: Properly handles attributes in nested `<association>` and `<collection>` tags.
+
+### 5. Code Formatting
 -   **SQL Formatting**: Automatically formats SQL blocks within your XML mapper files.
 
 ## Requirements

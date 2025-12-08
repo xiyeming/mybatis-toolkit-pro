@@ -19,12 +19,15 @@ export interface JavaClass {
     fullName: string; // Fully qualified name
     fileUri: vscode.Uri;
     fields: Map<string, FieldInfo>; // Field Name -> Info
+    parentClassName?: string; // Simple Name of parent class
+    imports: Map<string, string>; // Imports for resolving parent class
 }
 
 export interface FieldInfo {
     name: string;
     type: string; // Simple type name
     doc?: string; // Field documentation
+    line: number; // 0-based
 }
 
 export interface MethodInfo {
@@ -56,6 +59,26 @@ export interface ResultMapInfo {
     id: string;
     line: number;
     type: string; // The Java type it maps to
+}
+
+export interface ConnectionConfig {
+    id: string;
+    name: string;
+    host: string;
+    port: number;
+    user: string;
+    password?: string;
+    database: string;
+}
+
+export interface ColumnInfo {
+    Field: string;
+    Type: string;
+    Null: string;
+    Key: string;
+    Default: string | null;
+    Extra: string;
+    Comment?: string;
 }
 
 export interface IndexUpdateEvent {

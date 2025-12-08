@@ -20,6 +20,23 @@
   "main": "./dist/extension.js",
   "repository": "https://github.com/test/test1231.git",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mybatis-explorer",
+          "title": "MyBatis",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "mybatis-explorer": [
+        {
+          "id": "mybatisToolkit.databaseExplorer",
+          "name": "Database Explorer"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "mybatisToolkit.goToMapper",
@@ -28,8 +45,63 @@
       {
         "command": "mybatisToolkit.goToXml",
         "title": "Go to MyBatis XML"
+      },
+      {
+        "command": "mybatisToolkit.addConnection",
+        "title": "Add Connection",
+        "icon": "$(add)"
+      },
+      {
+        "command": "mybatisToolkit.connect",
+        "title": "Connect",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "mybatisToolkit.disconnect",
+        "title": "Disconnect",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "mybatisToolkit.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mybatisToolkit.removeConnection",
+        "title": "Remove",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "mybatisToolkit.openTableSchema",
+        "title": "Open Table Schema"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "mybatisToolkit.addConnection",
+          "when": "view == mybatisToolkit.databaseExplorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "mybatisToolkit.connect",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && !mybatisToolkit.connected",
+          "group": "inline"
+        },
+        {
+          "command": "mybatisToolkit.disconnect",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && mybatisToolkit.connected",
+          "group": "inline"
+        },
+        {
+          "command": "mybatisToolkit.removeConnection",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection",
+          "group": "1_modification"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "MyBatis Toolkit Pro",

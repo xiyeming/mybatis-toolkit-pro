@@ -20,6 +20,20 @@ export class JavaAstUtils {
     }
 
     /**
+     * Extracts the parent class name (simple name) if exists.
+     */
+    public static getParentClassName(content: string): string | null {
+        // public class Foo extends Bar implements Baz
+        const match = content.match(/class\s+\w+(?:\s*<[^>]+>)?\s+extends\s+([\w<>]+)/);
+        if (match) {
+            const ptr = match[1];
+            // Remove generics if any: Base<T> -> Base
+            return ptr.split('<')[0].trim();
+        }
+        return null;
+    }
+
+    /**
      * Parses import statements to resolve types.
      * Returns Map<SimpleName, FullQualifiedName>
      */
@@ -27,7 +41,7 @@ export class JavaAstUtils {
         const imports = new Map<string, string>();
         const lines = content.split('\n');
         const importRegex = /import\s+([\w.]+);/;
-        
+
         for (const line of lines) {
             const match = line.match(importRegex);
             if (match) {
@@ -46,12 +60,12 @@ export class JavaAstUtils {
     public static getFields(content: string): Map<string, FieldInfo> {
         const fields = new Map<string, FieldInfo>();
         const lines = content.split('\n');
-        
+
         let docBuffer: string[] = [];
         let inBlockComment = false;
 
-        // Pattern for field declaration: private Type name; or private static Type name;
-        const fieldRegex = /^\s*private\s+(?:static\s+|final\s+)*([\w<>\[\]]+)\s+(\w+)\s*(?:=.*)?;$/;
+        // Pattern for field declaration: [access] [static] [final] Type name;
+        const fieldRegex = /^\s*(?:private|protected|public)\s+(?:static\s+|final\s+)*([\w<>\[\]]+)\s+(\w+)\s*(?:=.*)?;$/;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -94,20 +108,21 @@ export class JavaAstUtils {
             if (match) {
                 const type = match[1];
                 const name = match[2];
-                
+
                 fields.set(name, {
                     name,
                     type,
-                    doc: docBuffer.length > 0 ? docBuffer.join('\n') : undefined
+                    doc: docBuffer.length > 0 ? docBuffer.join('\n') : undefined,
+                    line: i
                 });
-                
+
                 docBuffer = []; // Clear after assignment
             } else {
                 // If line is code but not a field (e.g. method, static block, public field), clear buffer
                 // to prevent comments from floating down to the next private field.
                 if (!line.startsWith('private') && !line.startsWith('protected') && !line.startsWith('public')) {
-                   // It's some other code, reset buffer
-                   docBuffer = [];
+                    // It's some other code, reset buffer
+                    docBuffer = [];
                 }
             }
         }
@@ -121,7 +136,7 @@ export class JavaAstUtils {
     public static getMethods(content: string): Map<string, MethodInfo> {
         const methods = new Map<string, MethodInfo>();
         const lines = content.split('\n');
-        
+
         let javaDocBuffer: string[] = [];
         let capturingJavaDoc = false;
         let currentParamDocs = new Map<string, string>();
@@ -149,7 +164,7 @@ export class JavaAstUtils {
             if (capturingJavaDoc) {
                 // Strip stars
                 let cleanLine = line.replace(/^\/\*\*?/, '').replace(/\*\/$/, '').replace(/^\*\s?/, '').trim();
-                
+
                 // Check for @param
                 const paramMatch = cleanLine.match(/^@param\s+(\w+)\s+(.*)/);
                 if (paramMatch) {
@@ -181,7 +196,7 @@ export class JavaAstUtils {
                 };
 
                 methods.set(methodName, methodInfo);
-                javaDocBuffer = []; 
+                javaDocBuffer = [];
                 currentParamDocs = new Map();
             } else if (!line.startsWith('@')) {
                 // If we hit code that isn't a method and isn't annotation, clear buffers
