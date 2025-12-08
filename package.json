@@ -157,6 +157,37 @@
           "default": "#9CDCFE",
           "description": "Color for MyBatis Parameters (#{...})."
         },
+        "mybatisToolkit.connections": {
+          "type": "array",
+          "default": [],
+          "description": "List of saved database connections.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "number"
+              },
+              "user": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              },
+              "database": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "mybatisToolkit.database.host": {
           "type": "string",
           "default": "localhost",
