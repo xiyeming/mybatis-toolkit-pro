@@ -2,43 +2,42 @@
 
 [English](README.md) | [中文](README_zh.md)
 
-Professional MyBatis development toolkit for VS Code, designed to boost your productivity with smart navigation, SQL validation, and rich syntax highlighting.
+专为 VS Code 设计的专业 MyBatis 开发工具包，旨在通过智能导航、SQL 验证和丰富的语法高亮提高您的生产力。
 
-## Features
+## 功能特性
 
-### 1. Smart Navigation
--   **Go to Definition**:
-    -   **Table Names**: Click on a table name in XML to jump to a schema view.
-    -   **ResultMap Properties**: Cmd+Click (Ctrl+Click) on `property` attributes in `<resultMap>` to jump to the Java field definition.
+### 1. 智能导航
+-   **跳转到定义**：
+    -   **数据库表**：点击 XML 中的表名跳转到虚拟架构视图。
+    -   **ResultMap 属性**：按住 Cmd+Click (Ctrl+Click) 点击 `<resultMap>` 中的 `property` 属性跳转到 Java 字段定义。
+    -   **Java 类**：跳转到 `resultType` 或 `parameterType` 对应的 Java 类。
 
-### 2. Rich SQL Highlighting
--   **Enhanced Syntax Highlighting**: Full support for SQL keywords, functions, and MyBatis parameters (`#{...}`, `${...}`).
--   **Comprehensive Coverage**: Includes highlighting for hundreds of MySQL keywords and functions.
+### 2. 强大的 SQL 高亮与格式化
+-   **增强高亮**：支持 SQL 关键字、函数及 MyBatis 参数 (`#{...}`, `${...}`)。
+-   **格式化**：自动格式化 XML 中的 SQL 代码块。
 
-### 3. Database Explorer & Multi-Datasource
--   **Multiple Connections**: Manage multiple MySQL connections from the sidebar (Host, Port, User, Password, Database).
--   **Virtual Schema View**: View table definitions and **comments** directly in VS Code.
--   **Comments Display**: Table and column comments are shown in the Database Explorer tree.
+### 3. 数据库管理器 & 多数据源
+-   **多连接管理**：在侧边栏管理多个 MySQL 连接（主机、端口、用户、密码、库名）。
+-   **虚拟架构视图**：直接在 VS Code 中查看表结构和**注释**。
+-   **注释显示**：数据库资源管理器树状图中直接显示表和字段的注释。
 
-### 4. Advanced Validation
--   **SQL Validation**: Real-time validation of table names and columns in your SQL.
--   **Type Safety**:
-    -   **Result Mapping**: Checks if fields in `resultMap` and `resultType` actually exist in the corresponding Java class.
-    -   **SQL Return Types**: Validates that columns selected in SQL match the properties of the Java return type (handles snake_case to camelCase conversion automatically).
-    -   **Nested Validations**: Properly handles attributes in nested `<association>` and `<collection>` tags.
+### 4. 高级验证
+-   **SQL 实时验证**：实时验证 SQL 中的表名和列名。
+-   **类型安全**：
+    -   **结果映射**：检查 `resultMap` 和 `resultType` 中的字段是否存在于 Java 类中。
+    -   **SQL 返回值**：验证 SQL `SELECT` 的列是否与 Java 返回对象的属性匹配（自动处理下划线转驼峰）。
+    -   **嵌套验证**：正确处理嵌套 `<association>` 和 `<collection>` 标签中的属性验证。
+    -   **ResultMap 白名单**：自动识别 `resultMap` 中显式映射的列，避免误报。
 
-### 5. Code Formatting
--   **SQL Formatting**: Automatically formats SQL blocks within your XML mapper files.
+## 需求
 
-## Requirements
+-   **VS Code**：版本 1.90.0 或更高。
 
--   **VS Code**: Version 1.90.0 or higher.
+## 配置
 
-## Configuration
+您可以在 VS Code 设置中自定义扩展。
 
-You can customize the extension in VS Code settings.
-
-### Database Configuration (Required for Validation & Navigation)
+### 数据库配置（验证和导航所需）
 
 ```json
 {
@@ -50,7 +49,7 @@ You can customize the extension in VS Code settings.
 }
 ```
 
-### Appearance & Formatting
+### 外观与格式化
 
 ```json
 {
@@ -62,6 +61,6 @@ You can customize the extension in VS Code settings.
 }
 ```
 
-## License
+## 许可证
 
 [MIT](LICENSE.md)

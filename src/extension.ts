@@ -8,7 +8,8 @@ import { SqlValidationProvider } from './providers/SqlValidationProvider';
 import { SqlDefinitionProvider } from './providers/SqlDefinitionProvider';
 import { PropertyDefinitionProvider } from './providers/PropertyDefinitionProvider';
 import { SchemaDocumentProvider } from './providers/SchemaDocumentProvider';
-import { DatabaseTreeDataProvider, ConnectionItem } from './providers/DatabaseTreeDataProvider';
+import { DatabaseTreeDataProvider, ConnectionItem, TableItem } from './providers/DatabaseTreeDataProvider';
+import { CodeGenerationService } from './services/CodeGenerationService';
 
 export function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel("MyBatis Toolkit");
@@ -20,6 +21,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     const dbService = DatabaseService.getInstance();
     dbService.init();
+
+    const codeGenService = new CodeGenerationService(dbService);
 
     // 2. Register Providers
     const codeLensProvider = new MyBatisCodeLensProvider(indexer);
@@ -160,6 +163,29 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('mybatisToolkit.openTableSchema', async (tableName: string) => {
             const uri = vscode.Uri.parse(`${SchemaDocumentProvider.scheme}:///${tableName}.md`);
             await vscode.window.showTextDocument(uri);
+        }),
+        vscode.commands.registerCommand('mybatisToolkit.generateCode', async (item: TableItem) => {
+            if (!item || !item.tableName) {
+                return;
+            }
+            // Prompt for Package
+            const basePackage = await vscode.window.showInputBox({
+                prompt: 'Enter Base Package (e.g. com.example.demo)',
+                placeHolder: 'com.example.demo',
+                value: 'com.example.demo'
+            });
+            if (!basePackage) return;
+
+            // Prompt for Table Prefix Removal (Optional)
+            // For now, let's keep it simple or infer it.
+            // Service handles generation.
+
+            if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+                const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+                await codeGenService.generateCode(item.tableName, basePackage, root);
+            } else {
+                vscode.window.showErrorMessage('No workspace open');
+            }
         })
     );
 
