@@ -350,7 +350,7 @@ export class SqlValidationProvider implements vscode.Disposable {
                     const columnRegex = /column=["']([^"']+)["']/g;
                     let colMatch;
                     while ((colMatch = columnRegex.exec(rm.content))) {
-                        mappedColumns.add(colMatch[1]);
+                        mappedColumns.add(colMatch[1].toLowerCase());
                     }
                 }
             }
@@ -426,8 +426,8 @@ export class SqlValidationProvider implements vscode.Disposable {
                     // Clean quotes from field name
                     fieldName = fieldName.replace(/^['"`]|['"`]$/g, '');
 
-                    // 1. Check Explicit Mapping (ResultMap)
-                    if (mappedColumns.has(fieldName)) {
+                    // 1. Check Explicit Mapping (ResultMap) - Case Insensitive
+                    if (mappedColumns.has(fieldName.toLowerCase())) {
                         continue; // Valid
                     }
 

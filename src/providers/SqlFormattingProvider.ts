@@ -104,36 +104,81 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
     }
 
     private alignLogicalOperators(buffer: { text: string; index: number }[], edits: vscode.TextEdit[], indentSize: number, doc: vscode.TextDocument) {
+        // State for context tracking
+        let depth = 0;
+        const anchors = new Map<number, number>(); // Depth -> Visual Column Index of WHERE/ON/HAVING
+
         buffer.forEach(item => {
-            const text = item.text;
-            const trimmed = text.trimLeft();
-            const upper = trimmed.toUpperCase();
+            const originalText = item.text;
+            // 1. Strip strings/comments for parsing safely (simplified)
+            // Remove contents of single quoted strings
+            const codeText = originalText.replace(/'[^']*'/g, "''");
 
-            // Check if line starts with AND/OR
-            if (upper.startsWith('AND ') || upper.startsWith('OR ') || upper === 'AND' || upper === 'OR') {
-                const isAnd = upper.startsWith('AND');
-                // Trim operator from start
-                const opLen = isAnd ? 3 : 2;
-                const content = trimmed.substring(opLen).trim();
+            // 2. Check if line starts with AND/OR (Logic Application)
+            const trimmedLeft = originalText.trimLeft();
+            const leadingSpaces = originalText.length - trimmedLeft.length;
+            const upper = trimmedLeft.split(' ')[0].toUpperCase();
 
-                // River style alignment:
-                // Expected indent = (indentSize * 2) + padding
-                // AND (3 chars) -> +2 spaces padding to align with 5-char WHERE
-                // OR (2 chars)  -> +3 spaces padding to align with 5-char WHERE
-
-                const alignPad = isAnd ? '  ' : '   ';
-                const baseIndent = ' '.repeat(indentSize * 2);
-
-                let newText = `${baseIndent}${alignPad}${isAnd ? 'AND' : 'OR'}`;
-                if (content.length > 0) {
-                    newText += ` ${content}`;
+            if (upper === 'AND' || upper === 'OR') {
+                // Determine which anchor to use
+                // Look for closest anchor from current depth down to 0
+                let anchorCol = -1;
+                for (let d = depth; d >= 0; d--) {
+                    if (anchors.has(d)) {
+                        anchorCol = anchors.get(d)!;
+                        break;
+                    }
                 }
 
-                const lineRange = doc.lineAt(item.index).range;
-                if (doc.getText(lineRange) !== newText) {
-                    edits.push(vscode.TextEdit.replace(lineRange, newText));
+                // Apply alignment if anchor is found
+                if (anchorCol !== -1) {
+                    const isAnd = upper === 'AND';
+                    // Target: Right align to WHERE (5 chars)
+                    // AnchorCol points to 'W' of WHERE.
+                    // AND (3) -> Anchor + 2
+                    // OR (2) -> Anchor + 3
+
+                    const newIndent = anchorCol + (isAnd ? 2 : 3);
+                    // If calculated indent is valid (>=0)
+                    if (newIndent >= 0) {
+                        const padding = ' '.repeat(newIndent);
+                        // Reconstruct line
+                        // Remove old operator from start
+                        const content = trimmedLeft.substring(upper.length).trim();
+                        const opWithSpace = content.length > 0 ? `${upper} ` : upper;
+                        const newLine = `${padding}${opWithSpace}${content}`;
+
+                        const lineRange = doc.lineAt(item.index).range;
+                        if (doc.getText(lineRange) !== newLine) {
+                            edits.push(vscode.TextEdit.replace(lineRange, newLine));
+                        }
+                    }
+                }
+            }
+
+            // 3. Update Context (Parsing)
+            // We search for keywords and parenthesis in order of appearance
+            const regex = /(\bWHERE\b|\bON\b|\bHAVING\b|\(|\))/gi;
+            let match;
+            while ((match = regex.exec(codeText)) !== null) {
+                const token = match[0].toUpperCase();
+                const index = match.index; // 0-based index in the line string
+
+                if (token === '(') {
+                    depth++;
+                } else if (token === ')') {
+                    depth = Math.max(0, depth - 1);
+                    // Optional: Clear anchor for this depth which is now closed?
+                    // Usually safer to keep it or let it be overwritten.
+                    // But if we close a subquery, the previous anchor at that depth is irrelevant for the next usage of that depth?
+                    anchors.delete(depth + 1); // Clean up deeper levels
+                } else {
+                    // WHERE / ON / HAVING
+                    // Set anchor for current depth
+                    anchors.set(depth, index);
                 }
             }
         });
     }
 }
+

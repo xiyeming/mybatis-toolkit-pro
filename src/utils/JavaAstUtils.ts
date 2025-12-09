@@ -65,7 +65,7 @@ export class JavaAstUtils {
         let inBlockComment = false;
 
         // Pattern for field declaration: [access] [static] [final] Type name;
-        const fieldRegex = /^\s*(?:private|protected|public)\s+(?:static\s+|final\s+)*([\w<>\[\]]+)\s+(\w+)\s*(?:=.*)?;$/;
+        const fieldRegex = /^\s*(?:private|protected|public)\s+(?:static\s+|final\s+)*(.+?)\s+(\w+)\s*(?:=.*)?;$/;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
