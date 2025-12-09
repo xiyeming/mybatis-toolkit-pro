@@ -57,6 +57,9 @@ export class SqlValidationProvider implements vscode.Disposable {
             await this.validateDatabaseConsistency(document, diagnostics);
         }
 
+        // --- 4. Validate UNION Consistency ---
+        this.validateUnionConsistency(document, diagnostics);
+
         this.diagnosticCollection.set(document.uri, diagnostics);
     }
 
@@ -123,6 +126,16 @@ export class SqlValidationProvider implements vscode.Disposable {
             while ((match = columnAliasRegex.exec(sqlOnly))) {
                 const alias = match[2];
                 if (!SQL_KEYWORDS.includes(alias.toUpperCase())) aliases.add(alias);
+            }
+
+            // 2b. Identify Subquery Aliases (e.g. JOIN (SELECT ...) t2 ON ...)
+            // Heuristic: Closing parenthesis followed by a non-keyword identifier
+            const subqueryAliasRegex = /\)\s+(?:AS\s+)?([a-zA-Z_]\w*)/gi;
+            while ((match = subqueryAliasRegex.exec(sqlOnly))) {
+                const alias = match[1];
+                if (!SQL_KEYWORDS.includes(alias.toUpperCase())) {
+                    aliases.add(alias);
+                }
             }
 
             // 3. Fetch Schema for Valid Tables
@@ -360,7 +373,7 @@ export class SqlValidationProvider implements vscode.Disposable {
 
                 for (const col of columns) {
                     const cleanCol = col.trim();
-                    if (!cleanCol || cleanCol === '*') continue;
+                    if (!cleanCol || cleanCol === '*' || cleanCol.endsWith('.*')) continue;
 
                     // Extract Alias or Field Name
                     // Logic:
@@ -545,6 +558,202 @@ export class SqlValidationProvider implements vscode.Disposable {
     private getAttribute(attributes: string, name: string): string | undefined {
         const match = new RegExp(`${name}=["']([^"']+)["']`).exec(attributes);
         return match ? match[1] : undefined;
+    }
+
+    private validateUnionConsistency(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const text = document.getText();
+        // Match <select> tags
+        const selectRegex = /<select\s+[^>]*>([\s\S]*?)<\/select>/g;
+        let match;
+
+        while ((match = selectRegex.exec(text))) {
+            const content = match[1];
+            const startOffset = match.index + match[0].indexOf(content);
+
+            // Clean content for parsing (replace XML tags but keep length)
+            const cleanSql = content.replace(/<[^>]+>/g, (m) => ' '.repeat(m.length));
+
+            const parts = this.splitByUnion(cleanSql);
+            if (parts.length <= 1) continue;
+
+            // Process first part as baseline
+            const baseColumns = this.extractColumnsFromUnionPart(parts[0].content);
+            if (!baseColumns) continue;
+
+            // Compare subsequent parts
+            for (let i = 1; i < parts.length; i++) {
+                const part = parts[i];
+                const currentColumns = this.extractColumnsFromUnionPart(part.content);
+
+                if (!currentColumns) continue;
+
+                const partAbsStart = startOffset + part.offset;
+
+                // 1. Check Column Count (Error)
+                if (currentColumns.length !== baseColumns.length) {
+                    // Try to highlight the SELECT clause or the whole part
+                    const selectIdx = part.content.toUpperCase().indexOf('SELECT');
+                    const rangeStart = selectIdx > -1 ? selectIdx : 0;
+                    // Highlight until FROM or end of line roughly
+                    const fromIdx = part.content.toUpperCase().indexOf('FROM', rangeStart);
+                    const rangeEnd = fromIdx > -1 ? fromIdx : part.content.length;
+
+                    const range = new vscode.Range(
+                        document.positionAt(partAbsStart + rangeStart),
+                        document.positionAt(partAbsStart + rangeEnd)
+                    );
+
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `The used SELECT statements have a different number of columns (${currentColumns.length} vs ${baseColumns.length}).`,
+                        vscode.DiagnosticSeverity.Error
+                    ));
+                    continue; // Skip name check if count is wrong
+                }
+
+                // 2. Check Column Names/Aliases (Warning)
+                for (let j = 0; j < baseColumns.length; j++) {
+                    const baseCol = baseColumns[j];
+                    const currentCol = currentColumns[j];
+
+                    if (baseCol.name !== currentCol.name) {
+                        // Locate the column in the current part
+                        // Crude location: part start + column string index
+                        // Better: We parsed it, but didn't keep offset. 
+                        // Let's just highlight the SELECT keyword of the part for simplicity, or re-search
+
+                        // We can search for the raw string of the column in the part
+                        const colIdx = part.content.indexOf(currentCol.raw); // This is approximate (could match elsewhere)
+                        let range: vscode.Range;
+
+                        if (colIdx > -1) {
+                            range = new vscode.Range(
+                                document.positionAt(partAbsStart + colIdx),
+                                document.positionAt(partAbsStart + colIdx + currentCol.raw.length)
+                            );
+                        } else {
+                            // Fallback to start of part
+                            range = new vscode.Range(
+                                document.positionAt(partAbsStart),
+                                document.positionAt(partAbsStart + 10)
+                            );
+                        }
+
+                        diagnostics.push(new vscode.Diagnostic(
+                            range,
+                            `Column name mismatch: '${currentCol.name}' vs '${baseCol.name}' (first SELECT). Order matters in UNION.`,
+                            vscode.DiagnosticSeverity.Warning
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    private extractColumnsFromUnionPart(sql: string): { name: string, raw: string }[] | null {
+        // Find SELECT ... FROM
+        // Simplified regex, assumes basic structure
+        const selectMatch = /^\s*SELECT\s+(.+?)\s+FROM\b/i.exec(sql);
+        if (!selectMatch) return null;
+
+        const columnsPart = selectMatch[1];
+        const columns = this.splitColumns(columnsPart);
+
+        return columns.map(col => {
+            const raw = col.trim();
+            const fieldName = this.extractColumnName(raw);
+            return { name: fieldName, raw };
+        });
+    }
+
+    private extractColumnName(col: string): string {
+        // Reuse logic from validateSqlFieldMappings roughly
+        let fieldName = '';
+        const normCol = col;
+        const upperCol = normCol.toUpperCase();
+        const asIndex = upperCol.lastIndexOf(' AS ');
+
+        if (asIndex > -1) {
+            fieldName = normCol.substring(asIndex + 4).trim();
+        } else {
+            const lastSpace = this.lastIndexOfNotInParens(normCol, ' ');
+            if (lastSpace > -1) {
+                fieldName = normCol.substring(lastSpace + 1).trim();
+            } else {
+                if (normCol.includes('(')) {
+                    // Expression without alias -> use full text as implicit name (often nondeterministic in DB, but consistent for check)
+                    fieldName = normCol;
+                } else {
+                    const dotIndex = normCol.lastIndexOf('.');
+                    if (dotIndex > -1) {
+                        fieldName = normCol.substring(dotIndex + 1);
+                    } else {
+                        fieldName = normCol;
+                    }
+                }
+            }
+        }
+        return fieldName.replace(/^['"`]|['"`]$/g, ''); // strip quotes
+    }
+
+    private splitByUnion(sql: string): { content: string, offset: number }[] {
+        const parts: { content: string, offset: number }[] = [];
+        let parenDepth = 0;
+        let inQuote = false;
+        let quoteChar = '';
+        let lastSplit = 0;
+        const len = sql.length;
+
+        for (let i = 0; i < len; i++) {
+            const char = sql[i];
+
+            if (inQuote) {
+                if (char === quoteChar && sql[i - 1] !== '\\') {
+                    inQuote = false;
+                }
+            } else {
+                if (char === "'" || char === '"' || char === '`') {
+                    inQuote = true;
+                    quoteChar = char;
+                } else if (char === '(') {
+                    parenDepth++;
+                } else if (char === ')') {
+                    parenDepth--;
+                } else if (parenDepth === 0) {
+                    // Check for UNION
+                    // distinct check: space boundary or newline before/after
+                    // Simplification: check if we match "UNION" or "UNION ALL"
+                    // Optimization: check first char 'U' or 'u'
+                    if (char === 'U' || char === 'u') {
+                        // Look ahead
+                        const rest = sql.substring(i);
+                        const unionMatch = /^(UNION(?:\s+ALL)?)\b/i.exec(rest);
+                        if (unionMatch) {
+                            // Check previous char is whitespace or boundary
+                            const prevChar = i > 0 ? sql[i - 1] : ' ';
+                            if (/[\s)]/.test(prevChar)) {
+                                // Found split
+                                parts.push({
+                                    content: sql.substring(lastSplit, i),
+                                    offset: lastSplit
+                                });
+                                lastSplit = i + unionMatch[0].length;
+                                i += unionMatch[0].length - 1; // Advance
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (lastSplit < len) {
+            parts.push({
+                content: sql.substring(lastSplit),
+                offset: lastSplit
+            });
+        }
+
+        return parts.filter(p => p.content.trim().length > 0);
     }
 
     public dispose() {
