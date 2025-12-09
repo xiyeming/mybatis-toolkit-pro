@@ -1,18 +1,18 @@
 import * as vscode from 'vscode';
 
 export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvider {
-    
+
     public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.TextEdit[] {
         const edits: vscode.TextEdit[] = [];
         const content = document.getText();
         const indentSize = vscode.workspace.getConfiguration('mybatisToolkit').get('formatting.indentSize', 2);
-        
+
         // Split by line
         const lines = content.split('\n');
-        
+
         let inSqlBlock = false;
         let sqlBuffer: { text: string; index: number }[] = [];
-        
+
         // Regex to identify start/end of SQL bearing tags
         // This is a simplified approach. A full XML parser is safer but regex is requested/faster for simple cases.
         const startTag = /<(select|insert|update|delete|sql)/;
@@ -20,9 +20,9 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            
+
             // Basic XML Indentation Logic would go here (omitted for brevity to focus on SQL specific reqs)
-            
+
             if (startTag.test(line)) {
                 inSqlBlock = true;
                 continue; // Skip the opening tag line for SQL formatting
@@ -40,7 +40,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 // Collect lines within the block that contain SELECT fields
                 // We mainly target the "SELECT ... FROM" area for AS alignment
                 if (line.trim().length > 0) {
-                     sqlBuffer.push({ text: line, index: i });
+                    sqlBuffer.push({ text: line, index: i });
                 }
             }
         }
@@ -49,7 +49,14 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
     }
 
     private processSqlBlock(buffer: { text: string; index: number }[], edits: vscode.TextEdit[], indentSize: number, doc: vscode.TextDocument) {
-        // 1. Detect if this is a SELECT block suitable for AS alignment
+        // 1. Process AS Alignment
+        this.alignAsKeywords(buffer, edits, doc);
+
+        // 2. Process Logical Operator Alignment (River Style)
+        this.alignLogicalOperators(buffer, edits, indentSize, doc);
+    }
+
+    private alignAsKeywords(buffer: { text: string; index: number }[], edits: vscode.TextEdit[], doc: vscode.TextDocument) {
         // Simple heuristic: look for lines containing ' as ' (case insensitive)
         const asRegex = /\s+as\s+/i;
         const candidates = buffer.filter(l => asRegex.test(l.text));
@@ -59,22 +66,19 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         // 2. Calculate the position of 'AS'
         // Strategy: Split into [Left Part] AS [Alias]
         // Find max length of [Left Part]
-        
+
         let maxLeftLength = 0;
         const parsedLines = candidates.map(item => {
             // Greedy match for last 'AS' to handle CAST(... AS type) AS alias
             const text = item.text;
             const lastAsIndex = text.toLowerCase().lastIndexOf(' as ');
-            
+
             if (lastAsIndex === -1) return null;
 
             const preAs = text.substring(0, lastAsIndex).trimEnd(); // Keep leading indentation
             const postAs = text.substring(lastAsIndex + 4).trimStart(); // ' as ' is 4 chars
 
             // Calculate visual length of preAs (assuming tabs are spaces for calculation)
-            // Note: In a real editor, indentation depth matters. 
-            // Here we assume the user wants to align relative to the longest field.
-            
             if (preAs.length > maxLeftLength) maxLeftLength = preAs.length;
 
             return {
@@ -87,14 +91,48 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         // 3. Generate Edits
         parsedLines.forEach(p => {
             if (!p) return;
-            
+
             // Pad spaces
             const padding = ' '.repeat(maxLeftLength - p.preAs.length + 1); // +1 for spacing
             const newText = `${p.preAs}${padding}AS ${p.postAs}`;
-            
+
             const lineRange = doc.lineAt(p.originalIndex).range;
             if (doc.getText(lineRange) !== newText) {
                 edits.push(vscode.TextEdit.replace(lineRange, newText));
+            }
+        });
+    }
+
+    private alignLogicalOperators(buffer: { text: string; index: number }[], edits: vscode.TextEdit[], indentSize: number, doc: vscode.TextDocument) {
+        buffer.forEach(item => {
+            const text = item.text;
+            const trimmed = text.trimLeft();
+            const upper = trimmed.toUpperCase();
+
+            // Check if line starts with AND/OR
+            if (upper.startsWith('AND ') || upper.startsWith('OR ') || upper === 'AND' || upper === 'OR') {
+                const isAnd = upper.startsWith('AND');
+                // Trim operator from start
+                const opLen = isAnd ? 3 : 2;
+                const content = trimmed.substring(opLen).trim();
+
+                // River style alignment:
+                // Expected indent = (indentSize * 2) + padding
+                // AND (3 chars) -> +2 spaces padding to align with 5-char WHERE
+                // OR (2 chars)  -> +3 spaces padding to align with 5-char WHERE
+
+                const alignPad = isAnd ? '  ' : '   ';
+                const baseIndent = ' '.repeat(indentSize * 2);
+
+                let newText = `${baseIndent}${alignPad}${isAnd ? 'AND' : 'OR'}`;
+                if (content.length > 0) {
+                    newText += ` ${content}`;
+                }
+
+                const lineRange = doc.lineAt(item.index).range;
+                if (doc.getText(lineRange) !== newText) {
+                    edits.push(vscode.TextEdit.replace(lineRange, newText));
+                }
             }
         });
     }
