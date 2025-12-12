@@ -18,7 +18,7 @@
     "workspaceContains:**/*.xml"
   ],
   "main": "./dist/extension.js",
-  "repository": "https://github.com/test/test1231.git",
+  "repository": "https://github.com/xiyeming/mybatis-toolkit-pro.git",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
