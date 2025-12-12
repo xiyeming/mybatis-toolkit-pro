@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.bx.test.rest.device.dao.DeviceTestMapper">
+    <!--  查询设备商户信息Map  -->
+    <resultMap id="TestKindMap" type="org.bx.test.rest.device.vo.TestKindVO">
+        <id column="kind_id" property="kindId"/>
+        <result column="kind_name" property="kindName"/>
+        <result column="kind_image" property="kindImage"/>
+        <result column="kind_image_focus" property="kindImageFocus"/>
+        <result column="kind_bgpic" property="kindBgpic"/>
+        <association property="kindItem" javaType="org.bx.test.rest.device.vo.TestItemVO">
+            <id column="item_id" property="itemId"/>
+            <result column="item_name" property="itemName"/>
+            <result column="item_api" property="itemApi"/>
+            <result column="item_model_key" property="itemModelKey"/>
+            <result column="item_image" property="itemImage"/>
+            <result column="item_bgpic" property="itemBgpic"/>
+            <result column="item_state" property="itemState"/>
+        </association>
+        <collection property="typeList" ofType="org.bx.test.rest.device.vo.TestTypeVO">
+            <id column="item_tag" property="testTag"/>
+            <collection property="itemList" ofType="org.bx.test.rest.device.vo.TestItemVO">
+                <id column="itemId" property="itemId"/>
+                <result column="item_name" property="itemName"/>
+                <result column="item_api" property="itemApi"/>
+                <result column="item_model_key" property="itemModelKey"/>
+                <result column="item_image" property="itemImage"/>
+                <result column="item_bgpic" property="itemBgpic" typeHandler="org.bx.web.mbatis.JsonMapTypeHandler"/>
+                <result column="item_state" property="itemState"/>
+            </collection>
+        </collection>
+    </resultMap>
+    <!-- vip 皮毛检测map   -->
+    <resultMap id="VipMap" type="org.bx.test.rest.device.vo.VIPItemVO">
+        <id column="id" property="itemId"/>
+        <result column="item_bgpic" property="itemBgpic"/>
+        <result column="item_blurb" property="itemBlurb"/>
+        <collection property="itemList" ofType="org.bx.test.rest.device.vo.VIPItemDescVO">
+            <id column="subItemId" property="subItemId"/>
+            <result column="subItemImg" property="subItemImg"/>
+            <result column="subItemBlurb" property="subItemBlurb"/>
+            <result column="item_name" property="subItemName"/>
+        </collection>
+    </resultMap>
+    <!--  目录相册图片  -->
+    <resultMap id="DirPicMap" type="org.bx.test.rest.device.dto.DirPicDTO">
+        <id column="bma_id" property="bmaId"/>
+        <collection property="picList" ofType="java.lang.String">
+            <id column="obj_key"/>
+        </collection>
+    </resultMap>
+    <!--  查询设备商户信息  -->
+    <select id="selectMhg" resultType="org.bx.test.rest.device.vo.MhgVO">
+        SELECT
+            bm.id       AS mhgId,
+            bm.mhg_name AS mhgName,
+            bm.mhg_type AS mhgType,
+            bmd.id      AS deviceId
+        FROM
+            biz_mhg_device bmd
+        LEFT JOIN biz_mhg bm ON bmd.mhg_id = bm.id
+            AND bm.del_flag = 0
+            AND bm.mhg_state = 1
+        WHERE
+            bmd.del_flag = 0
+            AND bmd.device_key = #{devNo}
+            AND bmd.device_type = 1
+            AND bmd.device_state = 1
+            AND bm.del_flag = 0
+    </select>
+    <!--  查询设备下的宠物分类检测项  -->
+    <select id="selectKindList" resultMap="TestKindMap">
+        SELECT
+            dpk.id                                                      AS kind_id,
+            dpk.kind_name,
+            JSON_UNQUOTE (JSON_EXTRACT (dpk.kind_image, '$.sub'))       AS kind_image,
+            JSON_UNQUOTE (JSON_EXTRACT (dpk.kind_image_focus, '$.sub')) AS kind_image_focus,
+            JSON_UNQUOTE (JSON_EXTRACT (dpk.kind_bgpic, '$.sub'))       AS kind_bgpic,
+            bti.item_tag,
+            bti.id                                                      AS itemid,
+            bti.item_name,
+            bti.item_model_key,
+            bti.item_api,
+            bti.item_image,
+            bti.item_bgpic,
+            bti.item_state
+        FROM
+            rel_mhg_dev_item rmdi
+        LEFT JOIN biz_test_item bti ON rmdi.item_id = bti.id
+            AND bti.del_flag = 0
+        LEFT JOIN rel_test_kind rtk ON bti.id = rtk.item_id
+            AND rtk.del_flag = 0
+        LEFT JOIN dict_pet_kind dpk ON rtk.kind_id = dpk.id
+            AND dpk.del_flag = 0
+        WHERE
+            rmdi.del_flag = 0
+            AND rmdi.mhg_id = #{mhgId}
+            AND rmdi.device_id = #{deviceId}
+            AND bti.item_type IN ( 0, 2)
+            AND bti.item_cls != 3
+            AND dpk.level_no = 0
+            ORDER BY bti.item_state DESC,
+            rmdi.item_sort,
+            dpk.first_char,
+            bti.item_type
+    </select>
+    <!--  查询vip 查询信息  -->
+    <select id="selectVipInfo" resultMap="VipMap">
+        SELECT
+            tip.id,
+            tip.item_bgpic,
+            tip.item_blurb,
+            tis.id         AS subitemid,
+            tis.item_image AS subitemimg,
+            tis.item_blurb AS subitemblurb,
+            tis.item_name
+        FROM
+            biz_test_item tip
+        LEFT JOIN biz_test_item tis ON tip.id = tis.parent_id
+            AND tis.del_flag = 0
+            AND tis.item_cls != 3
+        WHERE
+            tip.del_flag = 0
+            AND tip.item_type IN ( 0, 2)
+            AND tip.item_cls != 3
+            ORDER BY tis.id DESC
+    </select>
+    <!--  更新 兽药分析报告  -->
+    <update id="updateArchAda">
+        UPDATE
+            biz_arch_ada
+        SET
+            analysis_report = #{report},
+            model_id = #{modelId},
+            qr_code = #{qrcode},
+            view_state = 0,
+            updated_time = NOW()
+        WHERE
+            id = #{archId}
+            AND del_flag = 0
+    </update>
+    <!--  查询相册图片 前四张  -->
+    <select id="selectDirPic" resultMap="DirPicMap">
+        SELECT
+            bma_id,
+            obj_key
+        FROM
+            (
+                SELECT
+                    bma_id,
+                    obj_key,
+                    ROW_NUMBER () OVER (PARTITION BY mhg_id, device_key, bma_id ORDER BY created_time DESC) AS rn
+                FROM
+                    pets_new.biz_mhg_album_pic
+                WHERE
+                    del_flag = 0
+                    AND bma_id IN
+                <foreach item="item" collection="dirIdList" index="index" open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            ) subquery
+        WHERE
+            rn &lt; = 4
+    </select>
+    <!--  查询图片列表  -->
+    <select id="selectPicList" resultType="org.bx.test.rest.device.dto.PicListDTO">
+        SELECT
+            id,
+            obj_key AS pic_url
+        FROM
+            biz_mhg_album_pic
+        WHERE
+            del_flag = 0
+            AND bma_id = #{dirId}
+            ORDER BY created_time DESC
+    </select>
+    <!--  查询报告列表  -->
+    <select id="selectReportList" resultType="org.bx.test.rest.device.dto.ReportListDTO">
+        SELECT
+            ba.id              AS archId,
+            bti.item_model_key AS itemKey,
+            bti.item_image     AS itemPic,
+            ba.pet_id,
+            ba.arch_state,
+            ba.created_time,
+            ba.err_msg
+        FROM
+            biz_arch ba
+        LEFT JOIN biz_user_pet bup ON ba.pet_id = bup.id
+            AND bup.del_flag = 0
+        LEFT JOIN biz_test_item bti ON ba.item_id = bti.id
+            AND bti.del_flag = 0
+        WHERE
+            ba.del_flag = 0
+            AND ba.device_key = #{devNo}
+        <if test="petName !=null and petName !=''">
+            AND bup.pet_name LIKE CONCAT( '%', #{petName}, '%')
+        </if>
+        <if test="itemKey !=null and itemKey !=''">
+            AND bti.item_model_key LIKE CONCAT( '%', #{itemKey}, '%')
+        </if>
+        <if test="beginTime !=null">
+            AND ba.created_time >= #{beginTime}
+        </if>
+        <if test="endTime !=null">
+            AND ba.created_time &lt;= #{endTime}
+        </if>
+            ORDER BY ba.created_time DESC
+    </select>
+    <!--  查询宠物列表  -->
+    <select id="selectPetList" resultType="org.bx.test.rest.device.dto.ReportListDTO">
+        SELECT
+            but.pet_id,
+            but.pet_name,
+            but.pet_bday,
+            but.pet_wt,
+            but.pet_gender,
+            pk.kind_name AS pet_kind,
+            ps.kind_name AS pet_vars
+        FROM
+            biz_user_pet but
+        LEFT JOIN dict_pet_kind pk ON but.pet_id = pk.id
+            AND pk.del_flag = 0
+        LEFT JOIN dict_pet_kind ps ON but.vars_id = ps.id
+            AND ps.del_flag = 0
+        WHERE
+            but.del_flag = 0
+            AND but.id IN
+        <foreach item="item" collection="petIds" index="index" open="(" close=")" separator=",">
+            #{item}
+        </foreach>
+    </select>
+</mapper>

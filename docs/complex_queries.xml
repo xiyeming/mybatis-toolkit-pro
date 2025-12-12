@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.example.ComplexMapper">
+    <!-- 1. Complex Query with multiple joins, conditions and AS aliases for alignment testing -->
+    <select id="selectComplexEmployeeInfo" resultType="map">
+        SELECT
+            e.emp_id     AS employee_id,
+            e.emp_name   AS employee_name,
+            e.email      AS employee_email,
+            d.dept_name  AS department_name,
+            d.location   AS dept_location,
+            r.role_name  AS role_title,
+            s.salary_amt AS salary_amount,
+            s.bonus      AS salary_bonus
+        FROM
+            employee e
+        LEFT JOIN department d ON e.dept_id = d.id
+            AND d.active = 1
+        INNER JOIN roles r ON e.role_id = r.id
+        LEFT JOIN salaries s ON e.id = s.emp_id
+            AND s.year = 2024
+        WHERE
+            e.status = 'ACTIVE'
+            AND ( d.region = 'APAC'
+            OR d.region = 'NA')
+            AND s.salary_amt > 50000
+    </select>
+    <!-- 2. Nested Query (Subquery in FROM) -->
+    <select id="selectDeptStatistics" resultType="map">
+        SELECT
+            dt.dept_id    AS department_id,
+            dt.avg_salary AS average_salary,
+            dt.max_salary AS maximum_salary,
+            dt.total_emp  AS total_employees
+        FROM
+            (
+                SELECT
+                    d1.dept_id,
+                    AVG (d1.salary) AS avg_salary,
+                    MAX (d1.salary) AS max_salary,
+                    COUNT (d1. *)   AS total_emp
+                FROM
+                    (
+                        SELECT
+                            dept_id,
+                            AVG (salary) AS avg_salary,
+                            MAX (salary) AS max_salary,
+                            COUNT (*)    AS total_emp
+                        FROM
+                            employees
+                        WHERE
+                            hire_date > '2020-01-01'
+                            GROUP BY dept_id
+                    ) d1
+                WHERE
+                    d1.hire_date > '2020-01-01'
+                    GROUP BY d1.dept_id
+            ) dt
+        WHERE
+            dt.avg_salary > 6000
+            AND dt.total_emp >= 5
+    </select>
+    <!-- 3. Union Query (UNION ALL) -->
+    <select id="selectAllUserActivities" resultType="map">
+        SELECT
+            ua.user_id       AS user_id,
+            ua.activity_type AS type,
+            ua.timestamp     AS activity_time,
+            'ONLINE'         AS source
+        FROM
+            user_activities ua
+        WHERE
+            ua.date = CURDATE()
+        UNION ALL
+        SELECT
+            ha.user_id    AS user_id,
+            ha.event_type AS type,
+            ha.event_time AS activity_time,
+            'HISTORY'     AS source
+        FROM
+            history_activities ha
+        WHERE
+            ha.archived = 1
+    </select>
+    <!-- 4. Subquery in WHERE -->
+    <select id="selectHighValueOrders" resultType="map">
+        SELECT
+            o.order_id     AS id,
+            o.order_number AS code,
+            o.total_amount AS total
+        FROM
+            orders o
+        WHERE
+            o.status = 'COMPLETED'
+            AND o.customer_id IN (
+                SELECT
+                    c.id
+                FROM
+                    customers c
+                WHERE
+                    c.vip_level > 3
+                    AND c.registration_date < '2023-01-01'
+            )
+    </select>
+    <!-- 5. Nested Subqueries (Subquery inside Subquery) -->
+    <select id="selectTopPerformingRegions" resultType="map">
+        SELECT
+            r.region_name  AS region,
+            r.headquarter  AS hq,
+            r.sales_volume AS volume
+        FROM
+            regions r
+        WHERE
+            r.active = 1
+            AND r.id IN (
+                SELECT
+                    s.region_id
+                FROM
+                    regional_sales s
+                WHERE
+                    s.amount > (
+                        SELECT
+                            AVG (amount) * 1.5
+                        FROM
+                            regional_sales
+                        WHERE
+                            fiscal_year = 2023
+                    )
+            )
+    </select>
+    <!-- 6. Complex Nested with IF tags (Dynamic SQL) -->
+    <select id="selectDynamicComplex" resultType="map">
+        SELECT
+            t1.col_a AS column_a,
+            t1.col_b AS column_b,
+            t2.col_c AS column_c
+        FROM
+            table_one t1
+        LEFT JOIN table_two t2 ON t1.id = t2.ref_id
+        WHERE
+            t1.deleted = 0
+        <if test="param1 !=null">
+            AND t1.type = #{param1}
+        </if>
+        <if test="ids !=null and ids.size> 0">
+            AND t1.id IN
+            <foreach item="item" collection="ids" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+    </select>
+</mapper>

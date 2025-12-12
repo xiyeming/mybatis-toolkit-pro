@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.NestedMapper">
+    <!-- 深度嵌套示例：复杂查询 -->
+    <select id="selectDeeplyNested" resultType="map">
+        SELECT
+            *
+        FROM
+            users u
+        <where>
+            <!-- 第一层：if -->
+            <if test="condition1 != null">
+                AND u.status = 1
+                <!-- 第二层：choose -->
+                <choose>
+                    <when test="type == 'A'">
+                        AND u.type = 'A'
+                        <!-- 第三层：foreach -->
+                        <foreach collection="ids" item="id" open="AND u.id IN (" close=")" separator=",">
+                            #{id}
+                        </foreach>
+                    </when>
+                    <when test="type == 'B'">
+                        <!-- 第三层：if -->
+                        <if test="subType != null">
+                            AND u.sub_type = #{subType}
+                            <!-- 第四层：trim -->
+                            <trim prefix="AND (" suffix=")" prefixOverrides="OR">
+                                <!-- 第五层：foreach -->
+                                <foreach collection="tags" item="tag">
+                                    OR u.tags LIKE concat( '%', #{tag}, '%')
+                                </foreach>
+                            </trim>
+                        </if>
+                    </when>
+                    <otherwise>
+                        AND u.type = 'DEFAULT'
+                    </otherwise>
+                </choose>
+            </if>
+            <!-- 平级的第一层：trim 包含深度嵌套 -->
+            <if test="complexFilter != null">
+                AND EXISTS (
+                    SELECT
+                        1
+                    FROM
+                        orders o
+                    <where>
+                        o.user_id = u.id
+                        <!-- 第二层嵌套 -->
+                        <if test="orderStatus != null">
+                            AND o.status = #{orderStatus}
+                            <!-- 第三层嵌套 -->
+                            <choose>
+                                <when test="minAmount != null">
+                                    AND o.amount &gt;= #{minAmount}
+                                    <!-- 第四层嵌套 -->
+                                    <if test="maxAmount != null">
+                                        AND o.amount &lt;= #{maxAmount}
+                                        <!-- 第五层嵌套：bind -->
+                                        <bind name="notePattern" value="'%' + note + '%'"/>
+                                        AND o.note LIKE #{notePattern}
+                                    </if>
+                                </when>
+                            </choose>
+                        </if>
+                    </where>
+                )
+            </if>
+        </where>
+    </select>
+    <!-- 深度嵌套示例：更新语句 -->
+    <update id="updateDeeplyNested">
+        UPDATE
+            users
+        <set>
+            <if test="name != null">
+                name = #{name},
+            </if>
+            <!-- 第一层 choose -->
+            <choose>
+                <when test="role == 'ADMIN'">
+                    role = 'ADMIN',
+                    <!-- 第二层 if -->
+                    <if test="permissions != null">
+                        permissions =
+                        <!-- 第三层 foreach -->
+                        <foreach collection="permissions" item="perm" open="" close="" separator=",">
+                            #{perm}
+                        </foreach>
+                        ,
+                    </if>
+                    <!-- 平级的第二层 if -->
+                    <if test="adminLevel != null">
+                        admin_level = #{adminLevel},
+                    </if>
+                </when>
+                <otherwise>
+                    role = 'USER',
+                </otherwise>
+            </choose>
+        </set>
+        WHERE
+            id = #{id}
+    </update>
+</mapper>
