@@ -15,18 +15,18 @@ import { MethodSqlGenerator } from './services/MethodSqlGenerator';
 
 export function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel("MyBatis Toolkit");
-    outputChannel.appendLine('MyBatis Toolkit Pro is activating...');
+    outputChannel.appendLine('MyBatis Toolkit Pro 正在激活...');
 
-    // 1. Initialize Service
+    // 1. 初始化服务
     const indexer = ProjectIndexer.getInstance(outputChannel);
-    indexer.init(); // Async start
+    indexer.init(); // 异步启动
 
     const dbService = DatabaseService.getInstance();
     dbService.init();
 
     const codeGenService = new CodeGenerationService(dbService);
 
-    // 2. Register Providers
+    // 2. 注册提供者
     const codeLensProvider = new MyBatisCodeLensProvider(indexer);
     const mapperIntentionProvider = new MapperIntentionProvider(indexer);
     const formatProvider = new SqlFormattingProvider();
@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
     const propertyDefinitionProvider = new PropertyDefinitionProvider(indexer);
     const schemaProvider = new SchemaDocumentProvider(dbService);
 
-    // 0. Code Action (Generate XML)
+    // 0. 代码操作 (生成 XML)
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider(
             { language: 'java', scheme: 'file' },
@@ -52,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Formatting
+    // 格式化
     context.subscriptions.push(
         vscode.languages.registerDocumentFormattingEditProvider(
             { language: 'xml' },
@@ -60,12 +60,12 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Decorations (Color Highlighting)
+    // 装饰器 (代码高亮)
     context.subscriptions.push(decorationProvider);
 
-    // SQL Validation
+    // SQL 验证
     context.subscriptions.push(sqlValidationProvider);
-    // Trigger validation on active editor change and document change
+    // 在活动编辑器更改和文档更改时触发验证
     if (vscode.window.activeTextEditor) {
         sqlValidationProvider.triggerUpdateDiagnostics(vscode.window.activeTextEditor.document);
     }
@@ -80,7 +80,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // SQL Definition (Go to Definition)
+    // SQL 定义 (跳转到定义)
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider(
             { language: 'xml' },
@@ -88,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Schema Document Provider
+    // 架构文档提供者
     context.subscriptions.push(
         vscode.workspace.registerTextDocumentContentProvider(
             SchemaDocumentProvider.scheme,
@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // XML Property Definition
+    // XML 属性定义
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider(
             { language: 'xml' },
@@ -104,7 +104,7 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // 3. Register Commands (must match package.json)
+    // 3. 注册命令 (必须与 package.json 匹配)
     context.subscriptions.push(
         vscode.commands.registerCommand('mybatisToolkit.goToMapper', (uri: vscode.Uri) => {
             vscode.window.showTextDocument(uri);
@@ -117,7 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Database Explorer
+    // 数据库浏览器
     const treeProvider = new DatabaseTreeDataProvider(dbService);
     context.subscriptions.push(
         vscode.window.registerTreeDataProvider('mybatisToolkit.databaseExplorer', treeProvider)
@@ -125,15 +125,15 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('mybatisToolkit.addConnection', async () => {
-            const host = await vscode.window.showInputBox({ prompt: 'Database Host', placeHolder: 'localhost', value: 'localhost' });
+            const host = await vscode.window.showInputBox({ prompt: '数据库主机', placeHolder: 'localhost', value: 'localhost' });
             if (!host) return;
-            const portStr = await vscode.window.showInputBox({ prompt: 'Database Port', placeHolder: '3306', value: '3306' });
+            const portStr = await vscode.window.showInputBox({ prompt: '数据库端口', placeHolder: '3306', value: '3306' });
             if (!portStr) return;
-            const user = await vscode.window.showInputBox({ prompt: 'Database User', placeHolder: 'root', value: 'root' });
+            const user = await vscode.window.showInputBox({ prompt: '数据库用户名', placeHolder: 'root', value: 'root' });
             if (!user) return;
-            const password = await vscode.window.showInputBox({ prompt: 'Database Password', password: true });
+            const password = await vscode.window.showInputBox({ prompt: '数据库密码', password: true });
             if (password === undefined) return;
-            const database = await vscode.window.showInputBox({ prompt: 'Database Name' });
+            const database = await vscode.window.showInputBox({ prompt: '数据库名称' });
             if (!database) return;
 
             const config = {
@@ -147,13 +147,13 @@ export function activate(context: vscode.ExtensionContext) {
             };
 
             await dbService.addConnection(config);
-            // Optionally auto-connect
+            // 可选：自动连接
             // await dbService.connect(config.id);
         }),
         vscode.commands.registerCommand('mybatisToolkit.removeConnection', async (item: ConnectionItem) => {
             if (item && item.config) {
-                const answer = await vscode.window.showWarningMessage(`Are you sure you want to remove ${item.config.name}?`, 'Yes', 'No');
-                if (answer === 'Yes') {
+                const answer = await vscode.window.showWarningMessage(`确定要移除 ${item.config.name} 吗？`, '是', '否');
+                if (answer === '是') {
                     await dbService.removeConnection(item.config.id);
                 }
             }
@@ -179,28 +179,28 @@ export function activate(context: vscode.ExtensionContext) {
             if (!item || !item.tableName) {
                 return;
             }
-            // Prompt for Package
+            // 提示输入包名
             const basePackage = await vscode.window.showInputBox({
-                prompt: 'Enter Base Package (e.g. com.example.demo)',
+                prompt: '输入基础包名 (例如 com.example.demo)',
                 placeHolder: 'com.example.demo',
                 value: 'com.example.demo'
             });
             if (!basePackage) return;
 
-            // Prompt for Table Prefix Removal (Optional)
-            // For now, let's keep it simple or infer it.
-            // Service handles generation.
+            // 提示移除表前缀 (可选)
+            // 目前保持简单或自动推断。
+            // 服务处理生成逻辑。
 
             if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
                 const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
                 await codeGenService.generateCode(item.tableName, basePackage, root);
             } else {
-                vscode.window.showErrorMessage('No workspace open');
+                vscode.window.showErrorMessage('未打开工作区');
             }
         })
     );
 
-    outputChannel.appendLine('MyBatis Toolkit Pro activated successfully.');
+    outputChannel.appendLine('MyBatis Toolkit Pro 激活成功。');
 }
 
 export function deactivate() { }

@@ -22,38 +22,38 @@ export class DatabaseTreeDataProvider implements vscode.TreeDataProvider<Databas
 
     async getChildren(element?: DatabaseTreeItem): Promise<DatabaseTreeItem[]> {
         if (!element) {
-            // Root: List Connections
+            // 根节点：列出连接
             const connections = this.dbService.getConnections();
             return connections.map(c => {
                 const isActive = this.dbService.getActiveConnectionId() === c.id;
                 return new ConnectionItem(c, isActive, this.dbService.isConnected() && isActive);
             });
         } else if (element instanceof ConnectionItem) {
-            // Level 2: Tables (only if active and connected)
+            // 第 2 层：表 (仅当激活且已连接时)
             if (element.isActive && element.isConnected) {
-                // If tables are cached/ready
+                // 如果表已缓存/就绪
                 if (this.dbService.isReady()) {
-                    // We need a way to get the table list from service.
-                    // Ideally DatabaseService should expose getTables() (cached names)
-                    // But we used private tableCache. Let's add a public getter.
-                    // For now, assume we can get it or we have to wait.
-                    // Wait! tableCache is private. I need to expose it.
-                    // Better yet, I'll add getTableNames() to DatabaseService.
-                    // Assuming I've added getTableNames() or similar.
-                    // Let's modify DatabaseService to expose getTableNames first or assume it returns []
+                    // 我们需要一种方法从服务中获取表列表。
+                    // 理想情况下，DatabaseService 应该公开 getTables() (缓存的名称)
+                    // 但我们使用了私有 tableCache。让我们添加一个公共 getter。
+                    // 目前，假设我们可以获取它，或者我们必须等待。
+                    // 等等！tableCache 是私有的。我需要公开它。
+                    // 更好的是，我将把 getTableNames() 添加到 DatabaseService。
+                    // 假设我已经添加了 getTableNames() 或类似的。
+                    // 让我们先修改 DatabaseService 以公开 getTableNames 或假设它返回 []
 
-                    // Note: I will need to update DatabaseService to expose getTableNames.
-                    // For this write, I'll assume getTableNames exists or I'll implement it shortly.
+                    // 注意：我需要更新 DatabaseService 以公开 getTableNames。
+                    // 对于这次写入，我假设 getTableNames 存在或我将很快实现它。
                     const tables = await this.dbService.getTableNames();
                     return tables.map(t => new TableItem(t, element.config, this.dbService.getTableComment(t)));
                 }
-                return [new InfoItem("Loading tables...")];
+                return [new InfoItem("正在加载表...")];
             } else if (element.isActive && !element.isConnected) {
-                return [new InfoItem("Connecting...")];
+                return [new InfoItem("正在连接...")];
             }
-            return [new InfoItem("Not connected. Right click to connect.")];
+            return [new InfoItem("未连接。请右键点击以连接。")];
         } else if (element instanceof TableItem) {
-            // Level 3: Columns
+            // 第 3 层：列
             const columns = await this.dbService.getTableSchema(element.tableName);
             return columns.map(c => new ColumnItem(c));
         }
@@ -80,7 +80,7 @@ export class ConnectionItem extends DatabaseTreeItem {
 
         if (isActive) {
             this.iconPath = new vscode.ThemeIcon('database', new vscode.ThemeColor('charts.green'));
-            this.description += " (Active)";
+            this.description += " (活跃)";
         } else {
             this.iconPath = new vscode.ThemeIcon('database');
         }
@@ -92,11 +92,11 @@ export class TableItem extends DatabaseTreeItem {
         super(tableName, vscode.TreeItemCollapsibleState.Collapsed);
         this.contextValue = 'table';
         this.iconPath = new vscode.ThemeIcon('table');
-        this.description = comment; // Show comment
+        this.description = comment; // 显示注释
 
         this.command = {
             command: 'mybatisToolkit.openTableSchema',
-            title: 'Open Schema',
+            title: '打开架构',
             arguments: [tableName]
         };
         this.tooltip = `${tableName}${comment ? '\n' + comment : ''}`;
@@ -105,7 +105,7 @@ export class TableItem extends DatabaseTreeItem {
 
 export class ColumnItem extends DatabaseTreeItem {
     constructor(public readonly column: any) {
-        // Field: Type
+        // 字段: 类型
         super(`${column.Field}: ${column.Type}`, vscode.TreeItemCollapsibleState.None);
         this.contextValue = 'column';
 

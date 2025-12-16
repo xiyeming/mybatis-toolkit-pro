@@ -1,64 +1,64 @@
 import * as vscode from 'vscode';
 
 /**
- * Represents a Java Interface (Mapper) defined in the codebase.
+ * 表示代码库中定义的 Java 接口 (Mapper)。
  */
 export interface JavaInterface {
-    name: string; // Simple name, e.g., "UserMapper"
-    fullName: string; // Fully qualified name
+    name: string; // 简单名称, 例如 "UserMapper"
+    fullName: string; // 全限定名
     fileUri: vscode.Uri;
-    methods: Map<string, MethodInfo>; // Method Name -> Metadata
-    imports: Map<string, string>; // SimpleName -> FullName (for resolving parameter types)
+    methods: Map<string, MethodInfo>; // 方法名 -> 元数据
+    imports: Map<string, string>; // 简单名称 -> 全称 (用于解析参数类型)
 }
 
 /**
- * Represents a Java Class (DTO/Entity).
+ * 表示一个 Java 类 (DTO/Entity)。
  */
 export interface JavaClass {
-    name: string; // Simple name
-    fullName: string; // Fully qualified name
+    name: string; // 简单名称
+    fullName: string; // 全限定名
     fileUri: vscode.Uri;
-    fields: Map<string, FieldInfo>; // Field Name -> Info
-    parentClassName?: string; // Simple Name of parent class
-    imports: Map<string, string>; // Imports for resolving parent class
+    fields: Map<string, FieldInfo>; // 字段名 -> 信息
+    parentClassName?: string; // 父类简单名称
+    imports: Map<string, string>; // 用于解析父类的导入
 }
 
 export interface FieldInfo {
     name: string;
-    type: string; // Simple type name
-    doc?: string; // Field documentation
-    line: number; // 0-based
+    type: string; // 简单类型名称
+    doc?: string; // 字段文档
+    line: number; // 从 0 开始
 }
 
 export interface MethodInfo {
-    line: number; // 0-based
-    params: Map<string, string>; // Param Name -> Type (Simple Name)
-    paramDocs: Map<string, string>; // Param Name -> Description (from @param)
-    javaDoc?: string; // Main method description
+    line: number; // 从 0 开始
+    params: Map<string, string>; // 参数名 -> 类型 (简单名称)
+    paramDocs: Map<string, string>; // 参数名 -> 描述 (来自 @param)
+    javaDoc?: string; // 主要方法描述
     returnType?: string;
 }
 
 /**
- * Represents a MyBatis XML Mapper file.
+ * 表示一个 MyBatis XML Mapper 文件。
  */
 export interface MapperXml {
-    namespace: string; // The namespace attribute
+    namespace: string; // 命名空间属性
     fileUri: vscode.Uri;
-    statements: Map<string, StatementInfo>; // ID -> Info
-    resultMaps: Map<string, ResultMapInfo>; // ID -> Info
+    statements: Map<string, StatementInfo>; // ID -> 信息
+    resultMaps: Map<string, ResultMapInfo>; // ID -> 信息
 }
 
 export interface StatementInfo {
     id: string;
-    line: number; // Line number where <select|insert|etc> starts
+    line: number; // <select|insert|etc> 开始的行号
     type: 'select' | 'insert' | 'update' | 'delete';
-    resultMap?: string; // The ID of the resultMap used
+    resultMap?: string; // 使用的 resultMap ID
 }
 
 export interface ResultMapInfo {
     id: string;
     line: number;
-    type: string; // The Java type it maps to
+    type: string; // 映射到的 Java 类型
 }
 
 export interface ConnectionConfig {

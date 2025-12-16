@@ -23,7 +23,7 @@ export class DatabaseManager {
                 await ext.activate();
             }
             this.api = ext.exports;
-            // Probe for undocumented API methods
+            // 探测未记录的 API 方法
             console.log('Database Client API keys:', Object.keys(this.api || {}));
         }
     }
@@ -33,14 +33,14 @@ export class DatabaseManager {
     }
 
     public async getTableSchema(tableName: string): Promise<string[]> {
-        // Placeholder: If we can't get the connection, we can't get the schema.
-        // We might need to ask the user to provide connection details or use a command.
+        // 占位符：如果我们无法获取连接，我们就无法获取 schema。
+        // 我们可能需要要求用户提供连接详细信息或使用命令。
         return [];
     }
 
     public async validateTable(tableName: string): Promise<boolean> {
-        // TODO: Implement actual validation against the database
-        // For now, return true to avoid false positives
+        // 待办: 实现针对数据库的实际验证
+        // 目前返回 true 以避免误报
         return true;
     }
 }

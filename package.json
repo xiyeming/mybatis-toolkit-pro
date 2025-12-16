@@ -1,9 +1,23 @@
 {
   "name": "mybatis-toolkit-pro",
   "displayName": "MyBatis Toolkit Pro",
-  "description": "Professional MyBatis development toolkit",
+  "description": "专业的 MyBatis 开发工具包",
   "version": "1.0.0",
-  "publisher": "developer",
+  "publisher": "xiyeming",
+  "license": "MIT",
+  "keywords": [
+    "mybatis",
+    "sql",
+    "xml",
+    "java",
+    "vscode",
+    "database",
+    "code-generation"
+  ],
+  "homepage": "https://github.com/xiyeming/mybatis-toolkit-pro#readme",
+  "bugs": {
+    "url": "https://github.com/xiyeming/mybatis-toolkit-pro/issues"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -19,13 +33,14 @@
   ],
   "main": "./dist/extension.js",
   "repository": "https://github.com/xiyeming/mybatis-toolkit-pro.git",
+  "icon": "images/mybatis.png",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "mybatis-explorer",
           "title": "MyBatis",
-          "icon": "$(database)"
+          "icon": "images/mybatis.png"
         }
       ]
     },
@@ -33,51 +48,52 @@
       "mybatis-explorer": [
         {
           "id": "mybatisToolkit.databaseExplorer",
-          "name": "Database Explorer"
+          "name": "数据库浏览器",
+          "icon": "images/mybatis.png"
         }
       ]
     },
     "commands": [
       {
         "command": "mybatisToolkit.goToMapper",
-        "title": "Go to Mapper Interface"
+        "title": "跳转到 Mapper 接口"
       },
       {
         "command": "mybatisToolkit.goToXml",
-        "title": "Go to MyBatis XML"
+        "title": "跳转到 MyBatis XML"
       },
       {
         "command": "mybatisToolkit.addConnection",
-        "title": "Add Connection",
+        "title": "添加连接",
         "icon": "$(add)"
       },
       {
         "command": "mybatisToolkit.connect",
-        "title": "Connect",
+        "title": "连接",
         "icon": "$(plug)"
       },
       {
         "command": "mybatisToolkit.disconnect",
-        "title": "Disconnect",
+        "title": "断开连接",
         "icon": "$(plug)"
       },
       {
         "command": "mybatisToolkit.refresh",
-        "title": "Refresh",
+        "title": "刷新",
         "icon": "$(refresh)"
       },
       {
         "command": "mybatisToolkit.removeConnection",
-        "title": "Remove",
+        "title": "移除",
         "icon": "$(trash)"
       },
       {
         "command": "mybatisToolkit.openTableSchema",
-        "title": "Open Table Schema"
+        "title": "打开表结构"
       },
       {
         "command": "mybatisToolkit.generateCode",
-        "title": "Generate Code (Entity/Mapper/XML)"
+        "title": "生成代码 (Entity/Mapper/XML)"
       }
     ],
     "menus": {
@@ -118,7 +134,7 @@
         "mybatisToolkit.formatting.indentSize": {
           "type": "number",
           "default": 2,
-          "description": "Indentation size for SQL formatting."
+          "description": "SQL 格式化的缩进大小。"
         },
         "mybatisToolkit.navigation.exclude": {
           "type": "array",
@@ -131,36 +147,36 @@
             "node_modules",
             ".git"
           ],
-          "description": "Folders to exclude from indexing."
+          "description": "索引时排除的文件夹。"
         },
         "mybatisToolkit.highlights.tableNameColor": {
           "type": "string",
           "format": "color-hex",
           "default": "#FFAB70",
-          "description": "Color for SQL Table names (e.g. FROM table)."
+          "description": "SQL 表名颜色 (例如 FROM table)。"
         },
         "mybatisToolkit.highlights.keywordColor": {
           "type": "string",
           "format": "color-hex",
           "default": "#C586C0",
-          "description": "Color for SQL Keywords (SELECT, WHERE, etc.)."
+          "description": "SQL 关键字颜色 (SELECT, WHERE 等)。"
         },
         "mybatisToolkit.highlights.functionColor": {
           "type": "string",
           "format": "color-hex",
           "default": "#DCDCAA",
-          "description": "Color for SQL Functions (COUNT, MAX, etc.)."
+          "description": "SQL 函数颜色 (COUNT, MAX 等)。"
         },
         "mybatisToolkit.highlights.paramColor": {
           "type": "string",
           "format": "color-hex",
           "default": "#9CDCFE",
-          "description": "Color for MyBatis Parameters (#{...})."
+          "description": "MyBatis 参数颜色 (#{...})。"
         },
         "mybatisToolkit.connections": {
           "type": "array",
           "default": [],
-          "description": "List of saved database connections.",
+          "description": "保存的数据库连接列表。",
           "items": {
             "type": "object",
             "properties": {
@@ -191,37 +207,37 @@
         "mybatisToolkit.database.host": {
           "type": "string",
           "default": "localhost",
-          "description": "Database Host"
+          "description": "数据库主机"
         },
         "mybatisToolkit.database.port": {
           "type": "number",
           "default": 3306,
-          "description": "Database Port"
+          "description": "数据库端口"
         },
         "mybatisToolkit.database.user": {
           "type": "string",
           "default": "root",
-          "description": "Database User"
+          "description": "数据库用户名"
         },
         "mybatisToolkit.database.password": {
           "type": "string",
           "default": "",
-          "description": "Database Password"
+          "description": "数据库密码"
         },
         "mybatisToolkit.database.database": {
           "type": "string",
           "default": "",
-          "description": "Database Name"
+          "description": "数据库名称"
         },
         "mybatisToolkit.database.connectionLimit": {
           "type": "number",
           "default": 10,
-          "description": "Database Connection Pool Limit"
+          "description": "数据库连接池限制"
         },
         "mybatisToolkit.validation.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Enable SQL Table Validation"
+          "description": "启用 SQL 表验证"
         }
       }
     }

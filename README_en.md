@@ -1,6 +1,6 @@
 # MyBatis Toolkit Pro
 
-[English](README.md) | [中文](README_zh.md)
+[English](README_en.md) | [中文](README.md)
 
 Professional MyBatis development toolkit for VS Code, designed to boost your productivity with smart navigation, SQL validation, and rich syntax highlighting.
 

@@ -8,7 +8,7 @@ export class DecorationProvider implements vscode.Disposable {
     private activeEditor = vscode.window.activeTextEditor;
     private disposables: vscode.Disposable[] = [];
 
-    // Decoration Types
+    // 装饰类型
     private tableDecorationType: vscode.TextEditorDecorationType | undefined;
     private keywordDecorationType: vscode.TextEditorDecorationType | undefined;
     private functionDecorationType: vscode.TextEditorDecorationType | undefined;
@@ -18,10 +18,10 @@ export class DecorationProvider implements vscode.Disposable {
 
     constructor(indexer: ProjectIndexer) {
         this.indexer = indexer;
-        // 1. Initial Load
+        // 1. 初始加载
         this.reloadDecorations();
 
-        // 2. Event Listeners
+        // 2. 事件监听器
         this.disposables.push(
             vscode.window.onDidChangeActiveTextEditor(editor => {
                 this.activeEditor = editor;
@@ -48,10 +48,10 @@ export class DecorationProvider implements vscode.Disposable {
     }
 
     /**
-     * Recreates decoration types based on current settings
+     * 根据当前设置重新创建装饰类型
      */
     private reloadDecorations() {
-        // Dispose old decorations to apply new colors
+        // 销毁旧装饰以应用新颜色
         this.tableDecorationType?.dispose();
         this.keywordDecorationType?.dispose();
         this.functionDecorationType?.dispose();
@@ -92,7 +92,7 @@ export class DecorationProvider implements vscode.Disposable {
         if (!this.activeEditor) return;
         const doc = this.activeEditor.document;
 
-        // Only process XML files
+        // 仅处理 XML 文件
         if (doc.languageId !== 'xml') return;
 
         const text = doc.getText();
@@ -102,8 +102,8 @@ export class DecorationProvider implements vscode.Disposable {
         const functions: vscode.DecorationOptions[] = [];
         const params: vscode.DecorationOptions[] = [];
 
-        // 1. Find SQL Blocks (Simplified Regex)
-        // Matches <select|insert|update|delete ...> ... </...>
+        // 1. 查找 SQL 块 (简化正则)
+        // 匹配 <select|insert|update|delete ...> ... </...>
         const blockRegex = /<(select|insert|update|delete|sql)\b[\s\S]*?>([\s\S]*?)<\/\1>/gi;
         let blockMatch;
 
@@ -111,53 +111,53 @@ export class DecorationProvider implements vscode.Disposable {
             const blockContent = blockMatch[2];
             const blockStartIndex = blockMatch.index + blockMatch[0].indexOf(blockContent);
 
-            // --- Masking Strategy ---
-            // To prevent "double rendering" or highlighting inside comments/strings,
-            // we create masked versions of the content where comments/strings are replaced by spaces.
+            // --- 掩码策略 ---
+            // 为了防止“双重渲染”或在注释/字符串内部高亮，
+            // 我们创建内容的掩码版本，其中注释/字符串被替换为空格。
 
-            // 1. Mask Comments (/* ... */ and -- ...)
-            // Preserves offsets so range calculations remain valid.
+            // 1. 掩码注释 (/* ... */ 和 -- ...)
+            // 保留偏移量以便范围计算保持有效。
             const commentRegex = /(\/\*[\s\S]*?\*\/)|(--[^\n]*)/g;
             const contentNoComments = this.maskText(blockContent, commentRegex);
 
-            // 2. Mask Strings ('...') for Keywords/Tables/Functions
-            // We do NOT mask params because ${} often appears inside strings.
-            // We do NOT mask "..." or `...` because those are often identifiers (tables).
+            // 2. 掩码字符串 ('...') 用于关键字/表/函数
+            // 我们不掩码参数，因为 ${} 经常出现在字符串内部。
+            // 我们不掩码 "..." 或 `...` 因为这些通常是标识符 (表名)。
             const stringRegex = /'([^']|'')*'/g;
             const contentCodeOnly = this.maskText(contentNoComments, stringRegex);
 
 
             // --- Matching ---
 
-            // Tables: Use contentCodeOnly (Identifiers are usually clean or " / ` quoted)
+            // 表: 使用仅代码内容 (标识符通常是干净的或被引用)
             // FROM/JOIN/UPDATE/INTO table_name
             const tableRegex = /(?:FROM|JOIN|UPDATE|INTO)\s+([`"']?[\w.]+(?:[`"'][\w.]+)*[`"']?)/gi;
             this.collectMatches(tableRegex, contentCodeOnly, blockStartIndex, doc, tables, 1);
 
-            // Keywords: Use contentCodeOnly
+            // 关键字: 使用仅代码内容
             // Comprehensive list of MySQL keywords
             const keywordRegex = new RegExp(`\\b(${SQL_KEYWORDS.join('|')})\\b`, 'gi');
             this.collectMatches(keywordRegex, contentCodeOnly, blockStartIndex, doc, keywords);
 
-            // Functions: Use contentCodeOnly
+            // 函数: 使用仅代码内容
             // Comprehensive list of MySQL functions
             const funcRegex = new RegExp(`\\b(${SQL_FUNCTIONS.join('|')})\\b`, 'gi');
             this.collectMatches(funcRegex, contentCodeOnly, blockStartIndex, doc, functions, 1);
 
-            // Params: Use contentNoComments (Params valid inside strings, but not comments)
+            // 参数: 使用无注释内容 (参数在字符串内有效，但在注释内无效)
             const paramRegex = /(#|\$)\{([^\}]+)\}/g;
 
-            // Context for Hover
+            // 悬停上下文
             let hoverContext: { javaInterface: JavaInterface, methodInfo: MethodInfo } | undefined;
 
-            // 1. Get Namespace
+            // 1. 获取命名空间
             const namespaceMatch = text.match(/<mapper\s+namespace="([^"]+)"/);
             if (namespaceMatch) {
                 const namespace = namespaceMatch[1];
                 const javaInterface = this.indexer.getJavaByNamespace(namespace);
                 if (javaInterface) {
-                    // 2. Get Method ID from the block tag
-                    // blockMatch[0] is like <select id="selectById" ...> ... </select>
+                    // 2. 从块标签获取方法 ID
+                    // blockMatch[0] 就像 <select id="selectById" ...> ... </select>
                     const idMatch = blockMatch[0].match(/id="([^"]+)"/);
                     if (idMatch) {
                         const methodId = idMatch[1];
@@ -172,7 +172,7 @@ export class DecorationProvider implements vscode.Disposable {
             this.collectMatches(paramRegex, contentNoComments, blockStartIndex, doc, params, 0, hoverContext);
         }
 
-        // 3. Apply Decorations
+        // 3. 应用装饰
         if (this.tableDecorationType) this.activeEditor.setDecorations(this.tableDecorationType, tables);
         if (this.keywordDecorationType) this.activeEditor.setDecorations(this.keywordDecorationType, keywords);
         if (this.functionDecorationType) this.activeEditor.setDecorations(this.functionDecorationType, functions);
@@ -197,12 +197,12 @@ export class DecorationProvider implements vscode.Disposable {
     ) {
         let match;
         while ((match = regex.exec(content))) {
-            // Determine start/end of the specific capture group
+            // 确定特定捕获组的开始/结束
             const matchText = groupIndex === 0 ? match[0] : match[1]; // Use group 1 if specified
 
             if (!matchText) continue;
 
-            // Calculate relative index if using a group
+            // 计算相对索引
             const relativeIndex = groupIndex === 0 ? match.index : match.index + match[0].indexOf(matchText);
 
             const startPos = doc.positionAt(baseOffset + relativeIndex);
@@ -210,10 +210,10 @@ export class DecorationProvider implements vscode.Disposable {
 
             const decoration: vscode.DecorationOptions = { range: new vscode.Range(startPos, endPos) };
 
-            // Generate Hover if context is available (Only for params)
+            // 生成悬停 (仅针对参数)
             if (hoverContext && regex.source.includes('#')) {
-                // matchText is like "#{dto.id}" or "${id}"
-                // Extract property: dto.id
+                // matchText 就像 "#{dto.id}" 或 "${id}"
+                // 提取属性: dto.id
                 const fullProperty = matchText.substring(2, matchText.length - 1).trim();
                 if (fullProperty) {
                     const parts = fullProperty.split('.');
@@ -234,13 +234,13 @@ export class DecorationProvider implements vscode.Disposable {
         const md = new vscode.MarkdownString();
         md.isTrusted = true;
 
-        // 1. Determine Root Type and Description
+        // 1. 确定根类型和描述
         let rootType = methodInfo.params.get(rootParam);
         let description = methodInfo.paramDocs.get(rootParam);
         let resolvedFieldDoc: string | undefined = undefined;
         let resolvedFieldType: string | undefined = undefined;
 
-        // Implicit single param check
+        // 隐式单参数检查
         if (!rootType && methodInfo.params.size === 1) {
             const entry = methodInfo.params.entries().next().value;
             if (entry) {
@@ -250,7 +250,7 @@ export class DecorationProvider implements vscode.Disposable {
             }
         }
 
-        // 2. Resolve Nested Property
+        // 2. 解析嵌套属性
         if (rootType && (parts.length > 1 || (parts.length === 1 && parts[0] !== rootParam))) {
             let currentTypeSimple = rootType;
             let currentTypeFull = this.resolveFullName(javaInterface, currentTypeSimple);
@@ -278,20 +278,20 @@ export class DecorationProvider implements vscode.Disposable {
             }
         }
 
-        // 3. Construct Output
+        // 3. 构建输出
         const targetProp = parts.join('.');
-        md.appendMarkdown(`**MyBatis Property**: \`${targetProp}\`\n\n`);
+        md.appendMarkdown(`**MyBatis 属性**: \`${targetProp}\`\n\n`);
 
         if (resolvedFieldType) {
-            md.appendMarkdown(`**Type**: \`${resolvedFieldType}\`\n\n`);
+            md.appendMarkdown(`**类型**: \`${resolvedFieldType}\`\n\n`);
         } else if (rootType) {
-            md.appendMarkdown(`**Root Type**: \`${rootType}\`\n\n`);
+            md.appendMarkdown(`**根类型**: \`${rootType}\`\n\n`);
         }
 
         if (resolvedFieldDoc) {
-            md.appendMarkdown(`**Description**: ${resolvedFieldDoc}\n`);
+            md.appendMarkdown(`**描述**: ${resolvedFieldDoc}\n`);
         } else if (description) {
-            md.appendMarkdown(`**Param Description**: ${description}\n`);
+            md.appendMarkdown(`**参数描述**: ${description}\n`);
         }
 
         return md;

@@ -1,8 +1,15 @@
 # MyBatis Toolkit Pro
 
-[English](README.md) | [中文](README_zh.md)
+[English](README_en.md) | [中文](README.md)
 
 专为 VS Code 设计的专业 MyBatis 开发工具包，旨在通过智能导航、SQL 验证和丰富的语法高亮提高您的生产力。
+
+## 安装
+
+您可以通过以下方式安装本插件：
+
+1.  **VS Code 插件市场**：在扩展商店搜索 "MyBatis Toolkit Pro" 并安装。
+2.  **VSIX 安装**：从 [Releases](https://github.com/xiyeming/mybatis-toolkit-pro/releases) 页面下载最新的 `.vsix` 文件，在 VS Code 中通过 "Install from VSIX..." 进行安装。
 
 ## 功能特性
 
@@ -72,6 +79,10 @@
   "mybatisToolkit.highlights.paramColor": "#9CDCFE"
 }
 ```
+
+## 贡献
+
+欢迎通过 [GitHub Issues](https://github.com/xiyeming/mybatis-toolkit-pro/issues) 提交问题或建议。如果您想为项目贡献代码，请 fork 本仓库并提交 Pull Request。
 
 ## 许可证
 

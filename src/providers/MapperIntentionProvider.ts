@@ -15,32 +15,32 @@ export class MapperIntentionProvider implements vscode.CodeActionProvider {
     provideCodeActions(document: vscode.TextDocument, range: vscode.Range, context: vscode.CodeActionContext): vscode.CodeAction[] | undefined {
         if (document.languageId !== 'java') return;
 
-        // Only run if we are in a @Mapper interface
+        // 仅在 @Mapper 接口中运行
         const text = document.getText();
         if (!text.includes('@Mapper') && !text.includes('interface')) return;
 
-        // Determine method at cursor/range
+        // 确定光标/范围处的方法
         const methodLine = document.lineAt(range.start.line).text;
         const methodNameStr = JavaAstUtils.getMethodName(methodLine);
         if (!methodNameStr) return;
 
-        // Check if this method already exists in XML
-        // 1. Find XML file URI
+        // 检查此方法是否已存在于 XML 中
+        // 1. 查找 XML 文件 URI
         const mapperClass = this.getMapperClassName(document);
         if (!mapperClass) return;
 
         const xmlFile = this.indexer.getMapperPath(mapperClass);
-        if (!xmlFile) return; // XML not found, maybe offer to create one?
+        if (!xmlFile) return; // 未找到 XML，也许提供创建一个？
 
-        // 2. Check XML for id="methodName"
+        // 2. 检查 XML 中的 id="methodName"
         const xmlContent = fs.readFileSync(vscode.Uri.parse(xmlFile).fsPath, 'utf-8');
-        if (xmlContent.includes(`id="${methodNameStr}"`)) return; // Already exists
+        if (xmlContent.includes(`id="${methodNameStr}"`)) return; // 已存在
 
-        // 3. Create Action
-        const action = new vscode.CodeAction(`Generate XML for '${methodNameStr}'`, vscode.CodeActionKind.QuickFix);
+        // 3. 创建操作
+        const action = new vscode.CodeAction(`为 '${methodNameStr}' 生成 XML`, vscode.CodeActionKind.QuickFix);
         action.command = {
             command: 'mybatisToolkit.generateXmlForMethod',
-            title: 'Generate XML',
+            title: '生成 XML',
             arguments: [document, methodNameStr, xmlFile]
         };
 
@@ -48,7 +48,7 @@ export class MapperIntentionProvider implements vscode.CodeActionProvider {
     }
 
     private getMapperClassName(document: vscode.TextDocument): string | null {
-        // Simple regex to get package and class name
+        // 获取包名和类名的简单正则
         const text = document.getText();
         const packageMatch = text.match(/package\s+([\w.]+);/);
         const classMatch = text.match(/interface\s+(\w+)/);

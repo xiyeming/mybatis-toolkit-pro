@@ -10,22 +10,22 @@ export class MethodSqlGenerator {
         params: { name: string; type: string }[],
         className: string
     ): string {
-        // 1. Determine Operation Type
+        // 1. 确定操作类型
         const type = this.getOperationType(methodName);
         if (!type) return '';
 
-        // 2. Resolve Entity (Mock check or convention)
-        // Assume Entity name is derived from Interface name (UserMapper -> User)
-        // Or from return type (List<User> -> User)
+        // 2. 解析实体 (模拟检查或约定)
+        // 假设实体名称派生自接口名称 (UserMapper -> User)
+        // 或派生自返回类型 (List<User> -> User)
         let entityName = '';
         const interfaceSimpleName = className.split('.').pop() || '';
         const possibleEntity = interfaceSimpleName.replace('Mapper', '');
 
-        // Try to verify if this entity exists in indexer
-        // Simple heuristic: To pascal case to underscore (User -> user)
+        // 尝试验证此实体是否存在于索引中
+        // 简单启发式：PascalCase 转下划线 (User -> user)
         const tableName = this.camelToSnake(possibleEntity);
 
-        // 3. Build SQL
+        // 3. 构建 SQL
         let sql = '';
         let baseNode = '';
 
@@ -33,7 +33,7 @@ export class MethodSqlGenerator {
             case 'select':
                 {
                     const condition = this.parseCondition(methodName, 'select', params);
-                    // Standard MyBatis select
+                    // 标准 MyBatis select 查询
                     baseNode = `<select id="${methodName}" resultMap="BaseResultMap">\n`;
                     baseNode += `    select <include refid="Base_Column_List" />\n`;
                     baseNode += `    from ${tableName}\n`;
@@ -48,7 +48,7 @@ export class MethodSqlGenerator {
                     const condition = this.parseCondition(methodName, 'update', params);
                     baseNode = `<update id="${methodName}">\n`;
                     baseNode += `    update ${tableName}\n`;
-                    baseNode += `    set <!-- TODO: Add fields -->\n`;
+                    baseNode += `    set <!-- TODO: 添加字段 -->\n`;
                     if (condition) {
                         baseNode += `    where ${condition}`;
                     }
@@ -68,8 +68,8 @@ export class MethodSqlGenerator {
                 break;
             case 'insert':
                 baseNode = `<insert id="${methodName}" parameterType="${possibleEntity}">\n`;
-                baseNode += `    insert into ${tableName} (<!-- fields -->)\n`;
-                baseNode += `    values (<!-- values -->)\n`;
+                baseNode += `    insert into ${tableName} (<!-- 字段 -->)\n`;
+                baseNode += `    values (<!-- 值 -->)\n`;
                 baseNode += `  </insert>`;
                 break;
             case 'count':
@@ -99,13 +99,13 @@ export class MethodSqlGenerator {
     }
 
     private parseCondition(methodName: string, opType: string, params: { name: string; type: string }[]): string {
-        // Strip prefix (find, select...)
+        // 去除前缀 (find, select...)
         let rest = methodName.replace(/^(select|find|get|query|update|modify|delete|remove|count)(By)?/, '');
-        if (!rest) return ''; // No condition (e.g. selectAll)
+        if (!rest) return ''; // 无条件 (例如 selectAll)
 
-        // Split by And / Or
+        // 按 And / Or 分割
         const conditions: string[] = [];
-        // Regex to split by And/Or but keep delimiter
+        // 使用正则分割 And/Or 但保留分隔符
         const parts = rest.split(/(And|Or)/);
 
         let paramIndex = 0;
@@ -119,7 +119,7 @@ export class MethodSqlGenerator {
             if (!part) continue;
 
             const field = this.camelToSnake(this.lowerFirst(part));
-            // Check for Like, In, Between suffix
+            // 检查 Like, In, Between 后缀
             if (field.endsWith('_like')) {
                 const realField = field.replace('_like', '');
                 const pName = params[paramIndex]?.name || realField;
@@ -131,7 +131,7 @@ export class MethodSqlGenerator {
                 conditions.push(`${realField} in \n    <foreach item="item" collection="${pName}" open="(" separator="," close=")">#{item}</foreach>`);
                 paramIndex++;
             } else {
-                // Equals
+                // 等于
                 const pName = params[paramIndex]?.name || this.lowerFirst(part);
                 conditions.push(`${field} = #{${pName}}`);
                 paramIndex++;

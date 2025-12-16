@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-// Token Types
+// Token 类型
 enum TokenType {
     Keyword,
     Function,
@@ -30,13 +30,13 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         const text = document.getText();
         const indentSize = options.tabSize;
 
-        // 1. Tokenize
+        // 1. 分词 (Tokenize)
         const tokens = this.tokenize(text);
 
-        // 2. Format
+        // 2. 格式化 (Format)
         const formattedText = this.format(tokens, indentSize);
 
-        // 3. Return Edit (Replace Full Text)
+        // 3. 返回编辑 (替换全文)
         const fullRange = new vscode.Range(
             document.positionAt(0),
             document.positionAt(text.length)
@@ -49,20 +49,20 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         let i = 0;
         const length = text.length;
 
-        // Regular Expressions
+        // 正则表达式
         const xmlPrologRegex = /^<\s*\?\s*xml[\s\S]*?\?>/i;
         const xmlDoctypeRegex = /^<\s*!\s*DOCTYPE[\s\S]*?>/i;
         const xmlCommentRegex = /^<\s*!\s*--[\s\S]*?--\s*>/;
         const xmlCdataRegex = /^<\s*!\[CDATA\[[\s\S]*?\]\]>/i;
 
-        // Tag regex: Robust matching for < tag ... > including across lines, handling quoted strings containing >
+        // 标签正则：匹配 < tag ... >，支持跨行，处理包含 > 的引用字符串
         const xmlTagRegex = /^<\s*(\/?)\s*([\w:\-\.]+)(?:[^>"']|"[^"]*"|'[^']*')*?(\/?)>/;
 
-        // Entity regex: &name; or &#123; or &#x123;
+        // 实体正则：&name; 或 &#123; 或 &#x123;
         const entityRegex = /^&(#x?[0-9a-fA-F]+|[a-zA-Z0-9]+);/;
 
         const variableRegex = /^[\#\$]\{[^\}]*\}/;
-        // String regex: Allow single and double quotes
+        // 字符串正则：允许单引号和双引号
         const stringRegex = /^('[^']*'|"[^"]*")/;
 
         const wordRegex = /^[\w\.]+/;
@@ -71,7 +71,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             const char = text[i];
             const rest = text.slice(i);
 
-            // 1. Whitespace
+            // 1. 空白字符
             if (/\s/.test(char)) {
                 if (char === '\n' || (char === '\r' && (i + 1 < length && text[i + 1] === '\n'))) {
                     tokens.push({ type: TokenType.Newline, value: '\n' });
@@ -83,9 +83,9 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 continue;
             }
 
-            // 2. XML Constructs (Start with <)
+            // 2. XML 结构 (以 < 开头)
             if (char === '<') {
-                // Prolog (?xml)
+                // 序言 (?xml)
                 let m = rest.match(xmlPrologRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlProlog, value: m[0] });
@@ -93,7 +93,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     continue;
                 }
 
-                // Doctype (!DOCTYPE)
+                // 文档类型 (!DOCTYPE)
                 m = rest.match(xmlDoctypeRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlProlog, value: m[0] });
@@ -101,7 +101,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     continue;
                 }
 
-                // Comment (!--)
+                // 注释 (!--)
                 m = rest.match(xmlCommentRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlComment, value: m[0] });
@@ -109,7 +109,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     continue;
                 }
 
-                // CDATA (![CDATA[)
+                // CDATA 数据 (![CDATA[)
                 m = rest.match(xmlCdataRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlCdata, value: m[0] });
@@ -117,7 +117,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     continue;
                 }
 
-                // Tags
+                // 标签
                 const tagMatch = rest.match(xmlTagRegex);
                 if (tagMatch) {
                     tokens.push({ type: TokenType.XmlTag, value: tagMatch[0] });
@@ -126,7 +126,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 3. Variables
+            // 3. 变量
             if (char === '#' || char === '$') {
                 const varMatch = rest.match(variableRegex);
                 if (varMatch) {
@@ -136,7 +136,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 4. Strings (Single and Double Quotes)
+            // 4. 字符串 (单引号和双引号)
             if (char === "'" || char === '"') {
                 const strMatch = rest.match(stringRegex);
                 if (strMatch) {
@@ -146,7 +146,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 5. Plain Comments (SQL -- style, in case user mixes)
+            // 5. 普通注释 (SQL -- 风格，防止用户混合使用)
             if (rest.startsWith('--')) {
                 const nl = rest.indexOf('\n');
                 const comment = nl === -1 ? rest : rest.substring(0, nl);
@@ -155,9 +155,9 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 continue;
             }
 
-            // 6. XML Entities (Start with &)
+            // 6. XML 实体 (以 & 开头)
             if (char === '&') {
-                // Check for Entity-quoted strings first
+                // 首先检查实体引用的字符串
                 // &apos;...&apos;
                 if (rest.startsWith('&apos;')) {
                     const end = rest.indexOf('&apos;', 6);
@@ -185,14 +185,14 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 7. Operators Multi-char
+            // 7. 多字符运算符
             if (/^(\>=|\<=|\!=|\<\>)/.test(rest)) {
                 tokens.push({ type: TokenType.Operator, value: rest.substring(0, 2) });
                 i += 2;
                 continue;
             }
 
-            // 7. Words
+            // 7. 单词
             if (/[a-zA-Z0-9_]/.test(char)) {
                 const match = rest.match(wordRegex);
                 if (match) {
@@ -210,7 +210,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 8. Symbols
+            // 8. 符号
             tokens.push({ type: TokenType.Symbol, value: char });
             i++;
         }
@@ -222,13 +222,13 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
         let xmlDepth = 0;
         let clauseDepth = 0;
-        let extraIndent = 0; // Cumulative indent from parens/subqueries
+        let extraIndent = 0; // 来自括号/子查询的累积缩进
 
         let parenDepth = 0;
         let subqueryDepth = 0;
 
         const parenStack: boolean[] = [];
-        const clauseStack: number[] = []; // Stack to save clauseDepth when entering parens
+        const clauseStack: number[] = []; // 进入括号时保存 clauseDepth 的堆栈
 
         let newlineRequested = false;
         let spaceRequested = false;
@@ -237,18 +237,18 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             if (newlineRequested) {
                 output = output.trimRight();
                 output += '\n';
-                // Total indent includes xmlDepth + extraIndent (base from parens) + clauseDepth (current statement part)
-                // parenDepth is mostly visual for inline parens, but for block subqueries we often reset it or handle via extraIndent
-                // Let's refine:
-                // When we enter (SELECT ..., we treat it as a block.
-                // extraIndent captures the 'base' indent level of that block.
-                // clauseDepth handles indenting keywords like WHERE/AND relative to that base.
+                // 总缩进包括 xmlDepth + extraIndent (括号的基准) + clauseDepth (当前语句部分)
+                // parenDepth 主要用于行内括号的视觉效果，但对于块级子查询，我们通常重置它或通过 extraIndent 处理
+                // 让我们改进:
+                // 当我们要输入 (SELECT ... 时，我们将其视为一个块。
+                // extraIndent 捕获该块的 '基准' 缩进级别。
+                // clauseDepth 处理像 WHERE/AND 这样的关键字相对于该基准的缩进。
                 const totalIndent = Math.max(0, xmlDepth + extraIndent + clauseDepth);
                 output += ' '.repeat(totalIndent * indentSize);
                 newlineRequested = false;
                 spaceRequested = false;
             } else if (spaceRequested) {
-                if (output.length > 0 && !output.endsWith(' ') && !output.endsWith('\n')) {
+                if (output.length > 0 && !output.endsWith(' ') && !output.endsWith('\n') && !output.endsWith('.')) {
                     output += ' ';
                 }
                 spaceRequested = false;
@@ -283,10 +283,10 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     break;
 
                 case TokenType.XmlTag:
-                    // Reset SQL clause depth when entering/exiting XML tags
+                    // 进入/退出 XML 标签时重置 SQL 子句深度
                     clauseDepth = 0;
-                    // extraIndent = 0; // Removed to fix subquery indentation
-                    // clauseStack.length = 0; // Removed to fix subquery indentation
+                    // extraIndent = 0; // 已移除以修复子查询缩进
+                    // clauseStack.length = 0; // 已移除以修复子查询缩进
 
 
                     const normTag = this.normalizeTag(token.value);
@@ -295,11 +295,11 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
                     if (isClosing) {
                         xmlDepth = Math.max(0, xmlDepth - 1);
-                        newlineRequested = true; // Closing tag on new line
+                        newlineRequested = true; // 关闭标签在新行
                         append(normTag);
                         newlineRequested = true;
                     } else {
-                        // Opening tag
+                        // 打开标签
                         newlineRequested = true;
                         append(normTag);
                         if (!isSelfClosing) {
@@ -311,16 +311,16 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
                 case TokenType.Keyword:
                     const kw = token.value;
-                    // SQL formatting
+                    // SQL 格式化
                     if (['SELECT', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'UNION', 'SET', 'VALUES', 'UPDATE', 'DELETE', 'INSERT'].includes(kw)) {
-                        // Custom SELECT processing for AS alignment
+                        // 自定义 SELECT 处理以进行 AS 对齐
                         if (kw === 'SELECT') {
                             const totalIndent = Math.max(0, xmlDepth + extraIndent + clauseDepth);
-                            // Attempt to process the whole SELECT clause
+                            // 尝试处理整个 SELECT 子句
                             const selectResult = this.processSelectClause(tokens, i, totalIndent, indentSize);
 
                             if (selectResult) {
-                                // Apply the formatted result
+                                // 应用格式化结果
                                 if (newlineRequested) {
                                     output = output.trimRight();
                                     output += '\n';
@@ -333,33 +333,53 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                                 }
 
                                 output += selectResult.text;
-                                i = selectResult.nextIndex - 1; // Update iterator (will increment next loop)
+                                i = selectResult.nextIndex - 1; // 更新迭代器 (下一次循环将增加)
 
-                                // After SELECT clause, we usually expect FROM or end
-                                // Prepare state for next token
+                                // 在 SELECT 子句之后，我们通常期望 FROM 或结束
+                                // 为下一个 token 准备状态
                                 newlineRequested = true;
-                                clauseDepth = 0; // Reset clause depth
+                                clauseDepth = 0; // 重置子句深度
                                 continue;
                             }
                         }
 
                         if (kw === 'GROUP' || kw === 'ORDER') {
+                            clauseDepth = 0;
                             newlineRequested = true;
-                            clauseDepth = 1;
                             append(kw);
+
+                            // 检查 BY
+                            let k = i + 1;
+                            while (k < tokens.length) {
+                                const t = tokens[k];
+                                if (t.type === TokenType.Keyword) {
+                                    if (t.value === 'BY') {
+                                        append(" BY");
+                                        i = k; // 推进主循环
+                                    }
+                                    break;
+                                }
+                                if (t.type !== TokenType.Whitespace && t.type !== TokenType.Newline && t.type !== TokenType.XmlComment) {
+                                    break;
+                                }
+                                k++;
+                            }
+
+                            clauseDepth = 1;
+                            newlineRequested = true;
                         } else if (kw === 'UNION') {
                             clauseDepth = 0;
                             newlineRequested = true;
                             append(kw);
 
-                            // Check for ALL
+                            // 检查 ALL
                             let k = i + 1;
                             while (k < tokens.length) {
                                 const t = tokens[k];
                                 if (t.type === TokenType.Keyword) {
                                     if (t.value === 'ALL') {
                                         append(" ALL");
-                                        i = k; // Advance main loop
+                                        i = k; // 推进主循环
                                     }
                                     break;
                                 }
@@ -372,11 +392,11 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                             clauseDepth = 0;
                             newlineRequested = true;
                         } else {
-                            // Standard clause start
+                            // 标准子句开始
                             clauseDepth = 0;
                             newlineRequested = true;
                             append(kw);
-                            clauseDepth = 1; // Content of clause indented
+                            clauseDepth = 1; // 子句内容缩进
                             newlineRequested = true;
                         }
                     } else if (['LEFT', 'RIGHT', 'INNER', 'OUTER', 'JOIN'].includes(kw)) {
@@ -408,7 +428,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                         append(kw);
                     }
                     if (kw === 'BY') {
-                        // ignore
+                        // 忽略
                     }
                     break;
 
@@ -419,12 +439,12 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 case TokenType.Symbol:
                     if (token.value === ',') {
                         append(token.value);
-                        if (parenDepth > 0 && clauseStack.length === 0 /* weak check if inside simple parents */) {
-                            // Inside simple parens, maybe just space
-                            // But our paren processing logic below pushes to stack for subqueries.
-                            // If we are here, parenDepth > 0.
-                            // If it's a subquery, we likely handle comma in the clause logic or new lines.
-                            // For simple (a, b, c), space is fine.
+                        if (parenDepth > 0 && clauseStack.length === 0 /* 弱检查是否在简单括号内 */) {
+                            // 在简单括号内，也许只是空格
+                            // 但我们下面的括号处理逻辑会为子查询推入堆栈。
+                            // 如果我们在这里，parenDepth > 0。
+                            // 如果是子查询，我们可能会在子句逻辑或换行中处理逗号。
+                            // 对于简单的 (a, b, c)，空格很好。
                             spaceRequested = true;
                         } else {
                             newlineRequested = true;
@@ -438,12 +458,12 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                             subqueryDepth++;
                             parenStack.push(true);
 
-                            // === Indentation Logic for Subquery ===
-                            // Capture current clause indent + 1 as the new 'base' for the subquery
-                            // We want the inner SELECT/FROM to start indented relative to the (
+                            // === 子查询的缩进逻辑 ===
+                            // 捕获当前子句缩进 + 1 作为子查询的新 '基准'
+                            // 我们希望内部 SELECT/FROM 相对于 ( 开始缩进
                             clauseStack.push(clauseDepth);
                             extraIndent += (clauseDepth + 1);
-                            clauseDepth = 0; // Reset clause depth relative to new base
+                            clauseDepth = 0; // 相对于新基准重置子句深度
 
                             newlineRequested = true;
                         } else {
@@ -457,7 +477,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                         if (wasSubquery) {
                             subqueryDepth = Math.max(0, subqueryDepth - 1);
 
-                            // Restore indentation
+                            // 恢复缩进
                             const savedClauseDepth = clauseStack.pop() || 0;
                             extraIndent -= (savedClauseDepth + 1);
                             clauseDepth = savedClauseDepth;
@@ -480,20 +500,20 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     break;
 
                 case TokenType.Entity:
-                    // Treat like operator, but handle combined cases like &lt;=
-                    // check next token
+                    // 像运算符一样处理，但处理像 &lt;= 这样的组合情况
+                    // 检查下一个 token
                     let nextT = (i + 1 < tokens.length) ? tokens[i + 1] : null;
 
                     spaceRequested = true;
                     append(token.value);
 
-                    // If we have &lt;= or &gt;=, we might want to avoid space in between if the next token is =
-                    // However, &lt;= is not a standard entity. Usually it is &lt; =
-                    // We check if this entity is &lt; or &gt; and next is =
+                    // 如果我们有 &lt;= 或 &gt;=，如果下一个 token 是 =，我们可能希望避免中间有空格
+                    // 但是，&lt;= 不是标准实体。通常它是 &lt; =
+                    // 我们检查此实体是否为 &lt; 或 &gt; 且下一个是 =
                     if (nextT && nextT.value === '=') {
-                        // MERGE: Append = directly and skip next token
+                        // 合并: 直接追加 = 并跳过下一个 token
                         append('=');
-                        i++; // Skip the = token
+                        i++; // 跳过 = token
                         spaceRequested = true;
                     } else {
                         spaceRequested = true;
@@ -523,60 +543,60 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         for (let i = index - 1; i >= 0; i--) {
             if (tokens[i].type === TokenType.Keyword) return tokens[i].value;
             if (tokens[i].type === TokenType.Symbol || tokens[i].type === TokenType.Identifier) return null;
-            // Skip comments/whitespace, but stop at other things
+            // 跳过注释/空白，但在其他地方停止
         }
         return null;
     }
 
-    // Helper to clean up tag strings caught by regex
+    // 辅助函数：清理正则捕获的标签字符串
     private normalizeTag(raw: string): string {
-        // Remove newlines and collapse spaces
+        // 移除换行符并折叠空格
         let cleaned = raw.replace(/\s+/g, ' ');
 
-        // Fix < tag > -> <tag>
-        // Regex matched < \/? name ...
-        // We know it starts with <
+        // 修复 < tag > -> <tag>
+        // 正则匹配 < \/? name ...
+        // 我们知道它以 < 开头
         cleaned = cleaned.replace(/^<\s*(\/?)\s*/, '<$1');
 
-        // Fix space before >
+        // 修复 > 前的空格
         cleaned = cleaned.replace(/\s*(\/?)>$/, '$1>');
 
-        // Fix attributes: key = "val" -> key="val"
-        // This is tricky with regex because we must not touch strings.
-        // But we can approximate.
-        // Or simpler: Just ensure space after Tag Name.
+        // 修复属性: key = "val" -> key="val"
+        // 对于正则来说这很棘手，因为我们不能触及字符串。
+        // 但我们可以近似。
+        // 或更简单：只需确保标签名称后有空格。
 
-        // Extract parts: <tagname attributes...>
-        // Lowercase the tagname if it's a standard one? 
-        // User requirements say <select> etc.
-        // Let's lowercase the tagname part.
-        // Improved regex to capture attributes correctly even with quotes
+        // 提取部分: <tagname attributes...>
+        // 如果是标准标签，则小写标签名？
+        // 用户要求说 <select> 等。
+        // 让我们把标签名部分小写。
+        // 改进的正则以正确捕获属性，即使用引号
         const match = cleaned.match(/^<(\/?)([\w\.\-:]+)(.*?)(\/?)>$/);
         if (match) {
             const prefix = match[1];
             const tagName = match[2];
             let attrs = match[3];
-            const suffix = match[4]; // / or empty
+            const suffix = match[4]; // / 或空
 
             let lowerTag = tagName.toLowerCase();
-            // Preserve CamelCase for specific tags
+            // 为特定标签保留 CamelCase
             if (lowerTag === 'resultmap') lowerTag = 'resultMap';
 
-            // Clean attributes
-            // 1. Remove space around =
-            // Be careful not to match = inside quotes.
-            // Simple approach: Replace ' = ' with '=' only if it looks like attr assignment?
-            // attr = "val"
-            // We can iterate over attribute string with regex
-            // NOTE: This simple regex might still be risky if strings contain ' = '. 
-            // But for now let's hope it's fine as per previous logic, or improve it.
-            // Better to rely on the fact that we fixed the main parsing regex.
-            // Clean attributes
-            // 1. Remove space around = and trim value inside quotes
+            // 清理属性
+            // 1. 移除 = 周围的空格
+            // 小心不要匹配引号内的 =。
+            // 简单方法：如果看起来像属性赋值，则仅将 ' = ' 替换为 '='？
+            // attr = "var"
+            // 我们可以使用正则迭代属性字符串
+            // 注意：如果字符串包含 ' = '，这个简单的正则仍然可能由风险。
+            // 但目前让我们希望它根据之前的逻辑是好的，或者改进它。
+            // 最好依赖于我们修复了主解析正则的事实。
+            // 清理属性
+            // 1. 移除 = 周围的空格并修剪引号内的值
             attrs = attrs.replace(/(\w+)\s*=\s*"([^"]*)"/g, (m, k, v) => `${k}="${v.trim()}"`);
             attrs = attrs.replace(/(\w+)\s*=\s*'([^']*)'/g, (m, k, v) => `${k}='${v.trim()}'`);
 
-            // Ensure space before attrs if any
+            // 确保属性前有空格（如果有）
             if (attrs.length > 0 && !attrs.startsWith(' ')) {
                 attrs = ' ' + attrs;
             }
@@ -589,7 +609,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
     private normalizeProlog(raw: string): string {
         // <?xml ... ?>
-        // Collapse spaces
+        // 折叠空格
         let cleaned = raw.replace(/\s+/g, ' ');
         cleaned = cleaned.replace(/^<\s*\?\s*xml/i, '<?xml');
         cleaned = cleaned.replace(/\s*\?>$/, '?>');
@@ -608,25 +628,25 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         let currentField: Token[] = [];
         let parenDepth = 0;
 
-        // 1. Collect fields
+        // 1. 收集字段
         while (i < tokens.length) {
             const token = tokens[i];
 
-            // Safety check: avoid complex XML or line comments that might break simple logic
+            // 安全检查：避免可能破坏简单逻辑的复杂 XML 或行注释
             if (token.type === TokenType.XmlTag || token.type === TokenType.XmlProlog || token.type === TokenType.XmlCdata || (token.type === TokenType.XmlComment && token.value.trim().startsWith('--'))) {
                 return null;
             }
 
-            // Check for end of SELECT clause
+            // 检查 SELECT 子句的结束
             if (parenDepth === 0) {
                 if (token.type === TokenType.Keyword) {
-                    // Keywords that typically start a new clause or statement
+                    // 通常开始新子句或语句的关键字
                     if (['FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'UNION', 'LIMIT', 'INSERT', 'UPDATE', 'DELETE', 'SET', 'VALUES'].includes(token.value)) {
                         break;
                     }
                 }
                 if (token.value === ')') {
-                    // End of subquery
+                    // 子查询结束
                     break;
                 }
             }
@@ -650,12 +670,12 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
         if (fields.length === 0) return null;
 
-        // 2. Calculate alignment
-        // Check if we should align: we need at least one field with explicit AS that is not nested 
-        // For simplicity, we calculate Pre-AS length for all fields.
+        // 2. 计算对齐
+        // 检查是否应该对齐：我们需要至少一个具有显式 AS 且未嵌套的字段
+        // 为简单起见，我们计算所有字段的 AS 前长度。
 
         const processedFields = fields.map(field => {
-            // Find Top-Level AS
+            // 查找顶层 AS
             let asIndex = -1;
             let pDepth = 0;
             for (let k = 0; k < field.length; k++) {
@@ -678,29 +698,22 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             }
         });
 
-        // Determine Max Length
-        // Only consider fields that actually have AS for determining the max, or maybe all fields?
-        // Usually we want to align AS to the right of the longest expression.
-        // If a field doesn't have AS, it just prints.
-        // But if we want AS to align, we should find max len of Pre-AS parts of fields THAT HAVE AS?
-        // Or max len of ALL fields (thinking as columns)?
-        // User request: "同级 最大 AS 为基准对齐" -> Align AS based on sibling max AS.
-        // This usually implies finding the rightmost AS position needed.
-        // If there is a field *without* AS that is very long, should it push the AS of other fields?
-        // e.g.
-        // very_long_field_without_as
-        // short AS s
-        //
-        // vs
-        //
-        // very_long_field_without_as
-        // short                    AS s
-        //
-        // Typically, we only care about fields WITH AS. Long fields without AS shouldn't affect AS alignment of others ideally.
+        // 确定最大长度
+        // 仅考虑实际具有 AS 的字段来确定最大值，或者可能是所有字段？
+        // 通常我们希望将 AS 对齐到最长表达式的右侧。
+        // 如果字段没有 AS，它只是打印。
+        // 但是如果我们希望 AS 对齐，我们应该找到 具有 AS 的字段 的 AS 前部分的最大长度？
+        // 或者所有字段的最大长度（作为列思考）？
+        // 用户请求: "同级 最大 AS 为基准对齐" -> 基于兄弟最大 AS 对齐 AS。
+        // 这通常意味着找到所需的 AS 最右边位置。
+        // 如果有一个没有 AS 的字段很长，它应该推动其他字段的 AS 吗？
+        // 例如
+        // ...
+        // 通常，我们只关心具有 AS 的字段。没有 AS 的长字段不应理想地影响其他字段的 AS 对齐。
         const alignable = processedFields.filter(f => f.align);
         if (alignable.length === 0) {
-            // No AS found, fallback to standard formatting? Or just print as is?
-            // Just print using our single line formatter to be consistent
+            // 未找到 AS，回退到标准格式化？或者只是按原样打印？
+            // 只需使用我们的单行格式化程序进行打印以保持一致
         }
 
         let maxPreAsLen = 0;
@@ -708,7 +721,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             maxPreAsLen = Math.max(...alignable.map(f => f.preAsLen));
         }
 
-        // 3. Generate Output
+        // 3. 生成输出
         let result = "SELECT";
         const indentStr = " ".repeat((baseIndent + 1) * indentSize);
 
@@ -737,13 +750,13 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             const t = tokens[i];
             if (i > 0) {
                 const prev = tokens[i - 1];
-                // Simple heuristic for spacing
+                // 简单的空格启发式
                 if (t.value === ',' || t.value === '.') {
-                    // No space before comma or dot
-                } else if (prev.value === '.' || prev.value === '(') {
-                    // No space after dot or open paren
+                    // 逗号或点之前无空格
+                } else if (prev.value.endsWith('.') || prev.value === '(') {
+                    // 点或左括号之后无空格
                 } else if (t.value === ')') {
-                    // No space before close paren
+                    // 右括号之前无空格
                 } else {
                     out += " ";
                 }

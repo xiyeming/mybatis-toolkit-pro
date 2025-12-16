@@ -16,21 +16,21 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
         const rawWord = document.getText(range);
         const word = rawWord.replace(/[`"']/g, '');
 
-        // Skip parameters
+        // 跳过参数
         if (word.includes('#{') || word.includes('${')) return null;
 
-        // 1. Check if it's a Java Class (resultType, parameterType, etc.)
+        // 1. 检查是否为 Java 类 (resultType, parameterType 等)
         const javaClass = this.indexer.getClassByFullName(word);
         if (javaClass) {
             return new vscode.Location(javaClass.fileUri, new vscode.Position(0, 0));
         }
 
-        // 2. Check if it's a ResultMap (in the current file)
+        // 2. 检查是否为 ResultMap (在当前文件中)
         if (document.languageId === 'xml') {
             const lineContent = document.lineAt(position.line).text;
 
-            // Case A: Definition -> Usages (<resultMap id="Target"> -> <select resultMap="Target">)
-            // Check if we are clicking on the ID of a resultMap definition
+            // 情况 A: 定义 -> 用法 (<resultMap id="Target"> -> <select resultMap="Target">)
+            // 检查我们是否点击了 resultMap 定义的 ID
             const definitionMatch = lineContent.match(/<resultMap\s+id="([^"]+)"/);
             if (definitionMatch && definitionMatch[1] === word) {
                 const namespaceMatch = document.getText().match(/<mapper\s+namespace="([^"]+)"/);
@@ -52,7 +52,7 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
                 return null;
             }
 
-            // Case B: Usage -> Definition (resultMap="Target" -> <resultMap id="Target">)
+            // 情况 B: 用法 -> 定义 (resultMap="Target" -> <resultMap id="Target">)
             const namespaceMatch = document.getText().match(/<mapper\s+namespace="([^"]+)"/);
             if (namespaceMatch) {
                 const namespace = namespaceMatch[1];
@@ -64,10 +64,10 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
             }
         }
 
-        // 3. Check if it's a Database Table
+        // 3. 检查是否为数据库表
         if (this.dbService.hasTable(word)) {
-            // Return a location to the virtual document
-            // Use triple slash to ensure tableName is treated as path, not authority
+            // 返回到虚拟文档的位置
+            // 使用三斜杠确保 tableName 被视为路径，而不是 authority
             const uri = vscode.Uri.parse(`${SchemaDocumentProvider.scheme}:///${word}.md`);
             return new vscode.Location(uri, new vscode.Position(0, 0));
         }

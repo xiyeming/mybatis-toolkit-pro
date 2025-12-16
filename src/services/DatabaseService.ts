@@ -10,8 +10,8 @@ export class DatabaseService {
     private activeConnectionId: string | undefined;
     private activePool: mysql.Pool | undefined;
 
-    // Caches are now specific to the active connection
-    private tableCache: Map<string, string> = new Map(); // Table Name -> Comment
+    // 缓存现在特定于活动连接
+    private tableCache: Map<string, string> = new Map(); // 表名 -> 注释
     private schemaCache: Map<string, ColumnInfo[]> = new Map();
 
     private outputChannel: vscode.OutputChannel;
@@ -36,16 +36,16 @@ export class DatabaseService {
 
     // (Assume other methods are unchanged up to refreshTables)
 
-    // I need to be careful with replace_file_content scope. 
-    // It's safer to target specific blocks.
-    // Let's replace the properties and refreshTables method.
+    // 我需要小心 replace_file_content 的范围。
+    // 针对特定块更安全。
+    // 让我们替换属性和 refreshTables 方法。
 
 
     private loadConnections() {
         const config = vscode.workspace.getConfiguration('mybatisToolkit');
         this.connections = config.get<ConnectionConfig[]>('connections', []);
 
-        // Load potentially existing legacy config as a connection if no connections exist
+        // 如果不存在连接，则加载可能存在的旧配置作为连接
         if (this.connections.length === 0) {
             const dbConfig = vscode.workspace.getConfiguration('mybatisToolkit.database');
             if (dbConfig.get('host') && dbConfig.get('database')) {
@@ -92,7 +92,7 @@ export class DatabaseService {
 
         await this.disconnect();
 
-        this.outputChannel.appendLine(`Connecting to ${config.name} (${config.host})...`);
+        this.outputChannel.appendLine(`正在连接到 ${config.name} (${config.host})...`);
         try {
             this.activePool = mysql.createPool({
                 host: config.host,
@@ -105,19 +105,19 @@ export class DatabaseService {
                 queueLimit: 0
             });
 
-            // Test connection
+            // 测试连接
             const connection = await this.activePool.getConnection();
             connection.release();
 
             this.activeConnectionId = id;
-            this.outputChannel.appendLine(`Connected to database: ${config.database}`);
+            this.outputChannel.appendLine(`已连接到数据库: ${config.database}`);
 
             await this.refreshTables();
             this._onDidReady.fire();
-            this._onDidConfigChange.fire(); // Notify UI to update icons
+            this._onDidConfigChange.fire(); // 通知 UI 更新图标
         } catch (error: any) {
-            this.outputChannel.appendLine(`Failed to connect to ${config.name}: ${error.message}`);
-            vscode.window.showErrorMessage(`Failed to connect to ${config.name}: ${error.message}`);
+            this.outputChannel.appendLine(`连接 ${config.name} 失败: ${error.message}`);
+            vscode.window.showErrorMessage(`连接 ${config.name} 失败: ${error.message}`);
             this.activePool = undefined;
             this.activeConnectionId = undefined;
         }
@@ -139,7 +139,7 @@ export class DatabaseService {
     }
 
     public async init() {
-        // Auto-connect to the first available connection or last used (todo)
+        // 自动连接到第一个可用连接或上次使用的 (待办)
         if (this.connections.length > 0) {
             // await this.connect(this.connections[0].id);
         }
@@ -148,7 +148,7 @@ export class DatabaseService {
     public async refreshTables() {
         if (!this.activePool) return;
         try {
-            // SHOW TABLE STATUS returns Name, Comment, etc.
+            // SHOW TABLE STATUS 返回名称、注释等
             const [rows] = await this.activePool.query<mysql.RowDataPacket[]>('SHOW TABLE STATUS');
             this.tableCache.clear();
             this.schemaCache.clear();
@@ -157,9 +157,9 @@ export class DatabaseService {
                 const comment = row['Comment'] || '';
                 this.tableCache.set(tableName, comment);
             });
-            this.outputChannel.appendLine(`Refreshed ${this.tableCache.size} tables.`);
+            this.outputChannel.appendLine(`已刷新 ${this.tableCache.size} 张表。`);
         } catch (error: any) {
-            this.outputChannel.appendLine(`Failed to fetch tables: ${error.message}`);
+            this.outputChannel.appendLine(`获取表失败: ${error.message}`);
         }
     }
 
@@ -187,7 +187,7 @@ export class DatabaseService {
             this.schemaCache.set(tableName, columns);
             return columns;
         } catch (error: any) {
-            this.outputChannel.appendLine(`Failed to get schema for ${tableName}: ${error.message}`);
+            this.outputChannel.appendLine(`获取 ${tableName} 的架构失败: ${error.message}`);
             return [];
         }
     }
@@ -201,7 +201,7 @@ export class DatabaseService {
             }
             return '';
         } catch (error: any) {
-            this.outputChannel.appendLine(`Failed to get DDL for ${tableName}: ${error.message}`);
+            this.outputChannel.appendLine(`获取 ${tableName} 的 DDL 失败: ${error.message}`);
             return '';
         }
     }

@@ -1,0 +1,10 @@
+<select id="selectByExample">
+    SELECT
+        *
+    FROM
+        table1
+    WHERE
+        col1 = 1
+        GROUP BY col1
+        ORDER BY col1
+</select>

@@ -18,7 +18,7 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider<vscode.C
         const codeLenses: vscode.CodeLens[] = [];
         const content = document.getText();
 
-        // 1. Logic for XML Files
+        // 1. XML 文件逻辑
         if (document.languageId === 'xml') {
             const namespaceMatch = content.match(/<mapper\s+namespace="([^"]+)"/);
             if (namespaceMatch) {
@@ -26,16 +26,16 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider<vscode.C
                 const javaInterface = this.indexer.getJavaByNamespace(namespace);
 
                 if (javaInterface) {
-                    // Top-level Navigation
+                    // 顶层导航
                     const range = new vscode.Range(0, 0, 0, 0);
                     const cmd: vscode.Command = {
-                        title: `$(symbol-interface) Go to Interface: ${javaInterface.name}`,
+                        title: `$(symbol-interface) 跳转到接口: ${javaInterface.name}`,
                         command: 'vscode.open',
                         arguments: [javaInterface.fileUri]
                     };
                     codeLenses.push(new vscode.CodeLens(range, cmd));
 
-                    // Statement Level Navigation
+                    // 语句级导航
                     const lines = content.split('\n');
                     const stmtRegex = /<(select|insert|update|delete)\s+id="([^"]+)"/;
 
@@ -48,7 +48,7 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider<vscode.C
                             if (methodInfo) {
                                 const range = new vscode.Range(i, 0, i, lines[i].length);
                                 const cmd: vscode.Command = {
-                                    title: `$(symbol-method) Go to JAVA`,
+                                    title: `$(symbol-method) 跳转到 Java`,
                                     command: 'vscode.open',
                                     arguments: [
                                         javaInterface.fileUri,
@@ -63,7 +63,7 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider<vscode.C
             }
         }
 
-        // 2. Logic for Java Files
+        // 2. Java 文件逻辑
         else if (document.languageId === 'java') {
             const packageName = JavaAstUtils.getPackageName(content);
             const interfaceName = JavaAstUtils.getSimpleName(content);
@@ -73,23 +73,23 @@ export class MyBatisCodeLensProvider implements vscode.CodeLensProvider<vscode.C
                 const mapperXml = this.indexer.getXmlByInterface(fullName);
 
                 if (mapperXml) {
-                    // Top-level Navigation
+                    // 顶层导航
                     const range = new vscode.Range(0, 0, 0, 0);
                     const cmd: vscode.Command = {
-                        title: `$(file-code) Go to XML Mapper`,
+                        title: `$(file-code) 跳转到 XML Mapper`,
                         command: 'vscode.open',
                         arguments: [mapperXml.fileUri]
                     };
                     codeLenses.push(new vscode.CodeLens(range, cmd));
 
-                    // Method Level Navigation
+                    // 方法级导航
                     const methods = JavaAstUtils.getMethods(content);
                     for (const [methodName, info] of methods) {
                         const stmtInfo = mapperXml.statements.get(methodName);
                         if (stmtInfo) {
                             const range = new vscode.Range(info.line, 0, info.line, 100);
                             const cmd: vscode.Command = {
-                                title: `$(go-to-file) Go to XML`,
+                                title: `$(go-to-file) 跳转到 XML`,
                                 command: 'vscode.open',
                                 arguments: [
                                     mapperXml.fileUri,

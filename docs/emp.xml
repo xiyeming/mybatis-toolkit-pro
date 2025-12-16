@@ -43,10 +43,10 @@
     <!--  查询设备商户信息  -->
     <select id="selectMhg" resultType="org.bx.test.rest.device.vo.MhgVO">
         SELECT
-            bm.id AS mhgId,
+            bm.id       AS mhgId,
             bm.mhg_name AS mhgName,
             bm.mhg_type AS mhgType,
-            bmd.id AS deviceId
+            bmd.id      AS deviceId
         FROM
             biz_mhg_device bmd
         LEFT JOIN biz_mhg bm ON bmd.mhg_id = bm.id
@@ -62,13 +62,13 @@
     <!--  查询设备下的宠物分类检测项  -->
     <select id="selectKindList" resultMap="TestKindMap">
         SELECT
-            dpk.id AS kind_id,
+            dpk.id                                                      AS kind_id,
             dpk.kind_name,
-            JSON_UNQUOTE( JSON_EXTRACT( dpk.kind_image, '$.sub')) AS kind_image,
-            JSON_UNQUOTE( JSON_EXTRACT( dpk.kind_image_focus, '$.sub')) AS kind_image_focus,
-            JSON_UNQUOTE( JSON_EXTRACT( dpk.kind_bgpic, '$.sub')) AS kind_bgpic,
+            JSON_UNQUOTE (JSON_EXTRACT (dpk.kind_image, '$.sub'))       AS kind_image,
+            JSON_UNQUOTE (JSON_EXTRACT (dpk.kind_image_focus, '$.sub')) AS kind_image_focus,
+            JSON_UNQUOTE (JSON_EXTRACT (dpk.kind_bgpic, '$.sub'))       AS kind_bgpic,
             bti.item_tag,
-            bti.id AS itemid,
+            bti.id                                                      AS itemid,
             bti.item_name,
             bti.item_model_key,
             bti.item_api,
@@ -90,10 +90,11 @@
             AND bti.item_type IN ( 0, 2)
             AND bti.item_cls != 3
             AND dpk.level_no = 0
-        ORDER BY bti.item_state DESC,
-        rmdi.item_sort,
-        dpk.first_char,
-        bti.item_type
+        ORDER BY
+            bti.item_state DESC,
+            rmdi.item_sort,
+            dpk.first_char,
+            bti.item_type
     </select>
     <!--  查询vip 查询信息  -->
     <select id="selectVipInfo" resultMap="VipMap">
@@ -101,7 +102,7 @@
             tip.id,
             tip.item_bgpic,
             tip.item_blurb,
-            tis.id AS subitemid,
+            tis.id         AS subitemid,
             tis.item_image AS subitemimg,
             tis.item_blurb AS subitemblurb,
             tis.item_name
@@ -114,7 +115,8 @@
             tip.del_flag = 0
             AND tip.item_type IN ( 0, 2)
             AND tip.item_cls != 3
-        ORDER BY tis.id DESC
+        ORDER BY
+            tis.id DESC
     </select>
     <!--  更新 兽药分析报告  -->
     <update id="updateArchAda">
@@ -137,20 +139,21 @@
             obj_key
         FROM
             (
-        SELECT
-            bma_id, obj_key, ROW_NUMBER() OVER ( PARTITION BY mhg_id, device_key, bma_id
-        ORDER BY created_time DESC) AS rn
-        FROM
-            pets_new.biz_mhg_album_pic
+                SELECT
+                    bma_id,
+                    obj_key,
+                    ROW_NUMBER () OVER (PARTITION BY mhg_id, device_key, bma_id ORDER BY created_time DESC) AS rn
+                FROM
+                    pets_new.biz_mhg_album_pic
+                WHERE
+                    del_flag = 0
+                    AND bma_id IN
+                <foreach item="item" collection="dirIdList" index="index" open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            ) subquery
         WHERE
-            del_flag = 0
-            AND bma_id IN
-        <foreach item="item" collection="dirIdList" index="index" open="(" close=")" separator=",">
-            #{item}
-        </foreach>
-        ) subquery
-        WHERE
-            rn & lt ; = 4
+            rn &lt;= 4
     </select>
     <!--  查询图片列表  -->
     <select id="selectPicList" resultType="org.bx.test.rest.device.dto.PicListDTO">
@@ -162,14 +165,15 @@
         WHERE
             del_flag = 0
             AND bma_id = #{dirId}
-        ORDER BY created_time DESC
+        ORDER BY
+            created_time DESC
     </select>
     <!--  查询报告列表  -->
     <select id="selectReportList" resultType="org.bx.test.rest.device.dto.ReportListDTO">
         SELECT
-            ba.id AS archId,
+            ba.id              AS archId,
             bti.item_model_key AS itemKey,
-            bti.item_image AS itemPic,
+            bti.item_image     AS itemPic,
             ba.pet_id,
             ba.arch_state,
             ba.created_time,
@@ -193,9 +197,10 @@
             AND ba.created_time >= #{beginTime}
         </if>
         <if test="endTime !=null">
-            AND ba.created_time & lt ; = #{endTime}
+            AND ba.created_time &lt;= #{endTime}
         </if>
-        ORDER BY ba.created_time DESC
+        ORDER BY
+            ba.created_time DESC
     </select>
     <!--  查询宠物列表  -->
     <select id="selectPetList" resultType="org.bx.test.rest.device.dto.ReportListDTO">

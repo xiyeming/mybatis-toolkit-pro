@@ -4,7 +4,7 @@ import { MethodInfo, FieldInfo } from '../types';
 export class JavaAstUtils {
 
     /**
-     * Extracts the simple class/interface name from Java source.
+     * 从 Java 源码中提取简单的类/接口名称。
      */
     public static getSimpleName(content: string): string | null {
         const match = content.match(/(?:public\s+)?(?:class|interface)\s+(\w+)/);
@@ -12,7 +12,7 @@ export class JavaAstUtils {
     }
 
     /**
-     * Extracts the package name.
+     * 提取包名。
      */
     public static getPackageName(content: string): string | null {
         const match = content.match(/package\s+([\w.]+);/);
@@ -20,22 +20,22 @@ export class JavaAstUtils {
     }
 
     /**
-     * Extracts the parent class name (simple name) if exists.
+     * 提取父类名称 (简单名称) 如果存在。
      */
     public static getParentClassName(content: string): string | null {
-        // public class Foo extends Bar implements Baz
+        // 公共类 Foo 继承 Bar 实现 Baz
         const match = content.match(/class\s+\w+(?:\s*<[^>]+>)?\s+extends\s+([\w<>]+)/);
         if (match) {
             const ptr = match[1];
-            // Remove generics if any: Base<T> -> Base
+            // 移除泛型（如果有）: Base<T> -> Base
             return ptr.split('<')[0].trim();
         }
         return null;
     }
 
     /**
-     * Parses import statements to resolve types.
-     * Returns Map<SimpleName, FullQualifiedName>
+     * 解析导入语句以解析类型。
+     * 返回 Map<简单名称, 全限定名称>
      */
     public static getImports(content: string): Map<string, string> {
         const imports = new Map<string, string>();
@@ -55,7 +55,7 @@ export class JavaAstUtils {
     }
 
     /**
-     * Extracts fields from a DTO/Entity class with their documentation.
+     * 从 DTO/Entity 类中提取字段及其文档。
      */
     public static getFields(content: string): Map<string, FieldInfo> {
         const fields = new Map<string, FieldInfo>();
@@ -64,7 +64,7 @@ export class JavaAstUtils {
         let docBuffer: string[] = [];
         let inBlockComment = false;
 
-        // Pattern for field declaration: [access] [static] [final] Type name;
+        // 字段声明模式: [access] [static] [final] Type name;
         const fieldRegex = /^\s*(?:private|protected|public)\s+(?:static\s+|final\s+)*(.+?)\s+(\w+)\s*(?:=.*)?;$/;
 
         for (let i = 0; i < lines.length; i++) {
@@ -72,8 +72,8 @@ export class JavaAstUtils {
 
             // 1. Empty Line Check (Critical for strict association)
             if (line === '') {
-                // If we encounter an empty line and we are NOT inside a block comment,
-                // assume the previous comments were for something else or we should reset.
+                // 如果遇到空行且不在块注释内，
+                // 假设之前的注释是用于其他内容的，或者是时候重置了。
                 if (!inBlockComment) {
                     docBuffer = [];
                 }
@@ -83,7 +83,7 @@ export class JavaAstUtils {
             // 2. Comment Handling
             if (line.startsWith('/**')) {
                 inBlockComment = true;
-                docBuffer = []; // Start fresh for new block
+                docBuffer = []; // 为新块重新开始
             }
             if (inBlockComment) {
                 const clean = line.replace(/^\/\*\*?/, '').replace(/\*\/$/, '').replace(/^\*\s?/, '');
@@ -99,7 +99,7 @@ export class JavaAstUtils {
                 continue;
             }
             if (line.startsWith('@')) {
-                // Annotations like @Serial, @Deprecated don't break the comment chain
+                // 像 @Serial, @Deprecated 这样的注解不会打断注释链
                 continue;
             }
 
@@ -116,12 +116,12 @@ export class JavaAstUtils {
                     line: i
                 });
 
-                docBuffer = []; // Clear after assignment
+                docBuffer = []; // 赋值后清除
             } else {
-                // If line is code but not a field (e.g. method, static block, public field), clear buffer
-                // to prevent comments from floating down to the next private field.
+                // 如果行是代码但不是字段（例如方法、静态块、公共字段），清除缓冲区
+                // 以防止注释漂移到下一个私有字段。
                 if (!line.startsWith('private') && !line.startsWith('protected') && !line.startsWith('public')) {
-                    // It's some other code, reset buffer
+                    // 这是其他代码，重置缓冲区
                     docBuffer = [];
                 }
             }
@@ -131,7 +131,7 @@ export class JavaAstUtils {
     }
 
     /**
-     * Extracts public methods with metadata (line, params, javadoc).
+     * 提取带有元数据 (行号, 参数, javadoc) 的公共方法。
      */
     public static getMethods(content: string): Map<string, MethodInfo> {
         const methods = new Map<string, MethodInfo>();
@@ -147,7 +147,7 @@ export class JavaAstUtils {
             const line = lines[i].trim();
 
             if (line === '') {
-                // Strict check: empty lines break the javadoc association unless inside block
+                // 严格检查：空行会打断 Javadoc 关联，除非在块内
                 if (!capturingJavaDoc) {
                     javaDocBuffer = [];
                     currentParamDocs = new Map();
@@ -162,15 +162,15 @@ export class JavaAstUtils {
                 currentParamDocs = new Map<string, string>();
             }
             if (capturingJavaDoc) {
-                // Strip stars
+                // 去除星号
                 let cleanLine = line.replace(/^\/\*\*?/, '').replace(/\*\/$/, '').replace(/^\*\s?/, '').trim();
 
-                // Check for @param
+                // 检查 @param
                 const paramMatch = cleanLine.match(/^@param\s+(\w+)\s+(.*)/);
                 if (paramMatch) {
                     currentParamDocs.set(paramMatch[1], paramMatch[2]);
                 } else if (cleanLine && !cleanLine.startsWith('@')) {
-                    // Main description
+                    // 主要描述
                     javaDocBuffer.push(cleanLine);
                 }
 
@@ -199,7 +199,7 @@ export class JavaAstUtils {
                 javaDocBuffer = [];
                 currentParamDocs = new Map();
             } else if (!line.startsWith('@')) {
-                // If we hit code that isn't a method and isn't annotation, clear buffers
+                // 如果我们遇到不是方法也不是注解的代码，清除缓冲区
                 javaDocBuffer = [];
                 currentParamDocs = new Map();
             }
@@ -214,7 +214,7 @@ export class JavaAstUtils {
         const parts = paramsStr.split(',');
 
         for (const part of parts) {
-            const cleanPart = part.replace(/@\w+(?:\("[^"]*"\))?/g, '').trim(); // Remove annotations
+            const cleanPart = part.replace(/@\w+(?:\("[^"]*"\))?/g, '').trim(); // 移除注解
             const tokens = cleanPart.split(/\s+/);
             if (tokens.length >= 2) {
                 const name = tokens[tokens.length - 1];
@@ -230,11 +230,11 @@ export class JavaAstUtils {
     }
 
     /**
-     * Extracts method name from a signature line.
+     * 从签名行提取方法名称。
      */
     public static getMethodName(line: string): string | null {
-        // Match: public ResultType methodName(...)
-        // Or interface: ResultType methodName(...)
+        // 匹配: public ResultType methodName(...)
+        // 或接口: ResultType methodName(...)
         const match = line.match(/^\s*(?:public\s+|abstract\s+)?(?:[\w<>,\[\]]+\s+)+(\w+)\s*\(/);
         return match ? match[1] : null;
     }

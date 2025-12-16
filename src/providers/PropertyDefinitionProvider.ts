@@ -15,19 +15,19 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
         const word = document.getText(range);
         const text = document.getText();
 
-        // Only trigger within property="..."
+        // 仅在 property="..." 内部触发
         const line = document.lineAt(position.line).text;
         const widthBefore = position.character;
         const prefix = line.substring(0, widthBefore);
-        // Basic check if we are inside property="..."
-        // A more robust check would involve parsing or checking closest attribute
+        // 基本检查我们是否在 property="..." 内部
+        // 更稳健的检查将涉及解析或检查最近的属性
         if (!/property\s*=\s*["'][^"']*$/.test(prefix) && !/^[^"']*["']/.test(line.substring(widthBefore))) {
-            // Try to see if 'word' aligns with property value regex on the line
+            // 尝试查看 'word' 是否与行上的属性值正则对齐
             const propRegex = /property\s*=\s*["']([^"']+)["']/;
             const match = propRegex.exec(line);
             if (!match || match[1] !== word) {
-                // May also checking nested text, but let's assume standard attribute usage
-                // Double check if cursor is in the value
+                // 可能还需要检查嵌套文本，但让我们假设标准属性用法
+                // 再次检查光标是否在值中
                 const matchIndex = line.indexOf(`property="${word}"`);
                 const matchIndexSingle = line.indexOf(`property='${word}'`);
                 if ((matchIndex === -1 || position.character < matchIndex + 10 || position.character > matchIndex + 10 + word.length) &&
@@ -37,69 +37,69 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
             }
         }
 
-        // 1. Find the parent <resultMap> definition
-        // We need to search backwards from current position to find <resultMap type="...">
-        // Or if inside <association> or <collection>, find THAT type.
+        // 1. 查找父级 <resultMap> 定义
+        // 我们需要从当前位置向后搜索找到 <resultMap type="...">
+        // 或者如果是在 <association> 或 <collection> 内部，找到该类型。
 
-        // Simple strategy: Go up lines to find the enclosing tag with a type/ofType/javaType
-        // Optimization: Use a stack-based parser or regex search backwards.
+        // 简单策略：向上遍历行以找到带有 type/ofType/javaType 的封闭标签
+        // 优化：使用基于堆栈的解析器或向后正则搜索。
 
         let typeName: string | undefined;
         let currentLineNo = position.line;
 
-        // Traverse upwards
+        // 向上遍历
         const stack: string[] = [];
 
         while (currentLineNo >= 0) {
             const lineText = document.lineAt(currentLineNo).text;
 
-            // Check for immediate parent (association/collection)
-            // Note: simple line check might fail on multi-line tags, assuming one-line or standard format for now
-            // Improvements can be made with full document parsing if robust support needed
+            // 检查直接父级 (association/collection)
+            // 注意：简单的行检查可能会在多行标签上失败，暂时假设单行或标准格式
+            // 如果需要稳健的支持，可以使用完整的文档解析进行改进
 
-            // Check for resultMap header
+            // 检查 resultMap 头部
             const resultMapMatch = /<resultMap\s+[^>]*type="([^"]+)"/i.exec(lineText);
             if (resultMapMatch) {
-                // We found the root map. 
-                // BUT we might be inside a nested collection.
-                // If we haven't found a closer type, this is it.
+                // 我们找到了根 map。
+                // 但也可能在嵌套集合中。
+                // 如果我们尚未找到更近的类型，就是它了。
                 if (!typeName) typeName = resultMapMatch[1];
                 break;
             }
 
-            // Check for collection/association
+            // 检查 collection/association
             // <collection property="list" ofType="com.pkg.Item">
-            // This is harder because we are physically INSIDE the tag content.
-            // The tag opener is above us.
-            // If we are at indentation level X, we look for tags with indentation < X.
+            // 这更难，因为我们在物理上位于标签内容 *内部*。
+            // 标签开启者在我们上方。
+            // 如果我们在缩进级别 X，我们查找缩进 < X 的标签。
 
-            // Simplified Approach: Regex search backwards in full text from offset
+            // 简化方法：从偏移量向后正则搜索
             currentLineNo--;
         }
 
-        // Better Approach: Regex Last Index
+        // 更好的方法：正则 Last Index
         const docOffset = document.offsetAt(position);
         const textBefore = text.substring(0, docOffset);
 
-        // Find the last <resultMap> that hasn't been closed? No, XML is simpler.
-        // We need the NEAREST ancestor that defines a type.
-        // Ancestors are: <resultMap>, <collection>, <association>, <case>.
+        // 找到最后未关闭的 <resultMap>？不，XML 更简单。
+        // 我们需要定义类型的最近祖先。
+        // 祖先是: <resultMap>, <collection>, <association>, <case>.
 
-        // We can use a regex that captures all tags and build a stack, 
-        // but easier: find the last tag open that isn't closed.
+        // 我们可以使用捕获所有标签的正则并构建堆栈，
+        // 但更简单的是：找到最后一个未关闭的标签。
 
-        // Let's rely on finding standard MyBatis tag attributes `type`, `ofType`, `javaType`.
-        // We scan backwards. The first tag we encounter that is "open" (start tag) 
-        // and has one of these attributes is our candidate?
-        // Not necessarily, because we might be validation a sibling's property.
-        // XML is hierarchical. We need the logic:
-        // Find the opening tag of the element we are IN. 
-        // If we are in `<result ... property="foo"/>`, we are self-closing or closed. 
-        // We are inside the explicit parent.
+        // 让我们依赖于查找标准 MyBatis 标签属性 `type`, `ofType`, `javaType`。
+        // 我们向后扫描。我们遇到的第一个 "open" (开始标签)
+        // 并且具有这些属性之一的是我们的候选者？
+        // 不一定，因为我们可能正在验证兄弟节点的属性。
+        // XML 是分层的。我们需要逻辑：
+        // 找到我们所在的元素的开始标签。
+        // 如果我们在 `<result ... property="foo"/>` 中，我们是自闭合或已关闭的。
+        // 我们在显式父级内部。
 
-        // Scan backwards for `<resultMap`, `<collection`, `<association` that DOES NOT have a matching `</...>` in between.
+        // 向后扫描没有中间匹配 `</...>` 的 `<resultMap`, `<collection`, `<association`。
 
-        // Re-implementing a simple XML stack parser for "type context"
+        // 重新实现一个简单的 XML 堆栈解析器用于 "类型上下文"
         const tagStack = [];
         const typeStack: string[] = [];
         const tagsRegex = /<\/?(resultMap|collection|association|case)\b([^>]*)>/g;
@@ -107,70 +107,70 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
         let match;
         while ((match = tagsRegex.exec(text))) {
             const index = match.index;
-            if (index > docOffset) break; // Passed cursor
+            if (index > docOffset) break; // 超过光标
 
             const isClosing = match[0].startsWith('</');
             const tagName = match[1];
             const attributes = match[2];
 
             if (isClosing) {
-                if (typeStack.length > 0) typeStack.pop(); // Pop scope
+                if (typeStack.length > 0) typeStack.pop(); // 弹出作用域
             } else if (!match[0].endsWith('/>')) { // standard open tag
-                // If self-closing (handled by endsWith /> check above for simplistic parsing)
-                // Extract type
+                // 如果是自闭合（由上面的 endsWith /> 检查处理，用于简化解析）
+                // 提取类型
                 let type = this.extractType(attributes);
-                // Inherit parent type if not specified? 
-                // Collections/Associations usually specify type. 
-                // If not, it might be inferred from parent field, which is hard without deep analysis.
-                // Let's assume explicit type for now as per user request/standard.
+                // 如果未指定，继承父类型？
+                // Collections/Associations 通常指定类型。
+                // 如果没有，可能从父字段推断，如果没有深度分析很难。
+                // 让我们按照用户请求/标准假设显式类型。
                 typeStack.push(type || 'UNKNOWN');
             }
-            // If self-closing <collection ... /> it doesn't affect scope of *subsequent* lines (siblings), 
-            // only its own attributes which we shouldn't be inside if we are hovering a different property.
-            // Actually, if we are editing `property` attribute OF the collection tag itself, the context is the *parent* type.
-            // If we are INSIDE the collection tag body (nested tags), context is the *collection* type.
+            // 如果是自闭合 <collection ... />，它不会影响 *后续* 行（兄弟节点）的作用域，
+            // 仅影响其自身的属性，如果我们悬停在不同的属性上，我们不应该在其中。
+            // 实际上，如果我们正在编辑 collection 标签本身的 `property` 属性，上下文是 *父* 类型。
+            // 如果我们在 collection 标签体 *内部*（嵌套标签），上下文是 *collection* 类型。
 
-            // Wait, "property" attribute belongs to the tag it is ON.
-            // `<result property="foo" />` -> foo belongs to Parent Type.
-            // `<collection property="items" ...>` -> items belongs to Parent Type.
-            // INSIDE `<collection ...> <result property="bar" /> </collection>` -> bar belongs to Collection Type.
+            // 等等，"property" 属性属于它所在的标签。
+            // `<result property="foo" />` -> foo 属于父类型。
+            // `<collection property="items" ...>` -> items 属于父类型。
+            // 内部 `<collection ...> <result property="bar" /> </collection>` -> bar 属于 Collection 类型。
 
-            // So: the type context for a `property` attribute is the Type of the IMMEDIATE PARENT ELEMENT.
+            // 所以：`property` 属性的类型上下文是直接父元素的类型。
         }
 
-        // The loop above puts us in states.
-        // When we hit `index > docOffset`, we are "inside" the tags remaining in stack.
-        // BUT, the tag we are taking `property` from is likely the *last* one matched (if we are strictly inside it), 
-        // OR we are properly inside the *content* of the last one.
+        // 上面的循环让我们处于状态中。
+        // 当我们遇到 `index > docOffset` 时，我们处于堆栈中剩余标签的 "内部"。
+        // 但是，我们获取 `property` 的标签可能是匹配的 *最后一个*（通过严格内部检查），
+        // 或者我们正确地位于最后一个的内容 *内部*。
 
-        // Actually, specific logic:
-        // Text: ... <resultMap type="A"> <collection ofType="B"> <result property="WORD" ...
-        // Logic:
-        // 1. Find the parent tag enclosing the current `property="..."`.
-        //    Since `property` is an attribute of a tag (e.g. `<result`), we are logically "inside" that tag's definition 
-        //    (but physically the tag string).
-        //    However, the "context type" is defined by the *Container* of that tag.
+        // 实际上，具体逻辑：
+        // 文本: ... <resultMap type="A"> <collection ofType="B"> <result property="WORD" ...
+        // 逻辑:
+        // 1. 找到包含当前 `property="..."` 的父标签。
+        //    由于 `property` 是标签的属性（例如 `<result`），我们在逻辑上位于该标签定义的 "内部"
+        //    （但物理上在标签字符串内）。
+        //    但是，"上下文类型" 由该标签的 *容器* 定义。
 
         //    <resultMap type="User">
-        //       <result property="name" />  <-- Context is User
+        //       <result property="name" />  <-- 上下文是 User
         //    </resultMap>
 
         //    <collection ofType="Item">
-        //       <result property="id" />    <-- Context is Item
+        //       <result property="id" />    <-- 上下文是 Item
         //    </collection>
 
-        // Scan backwards to find the NEAREST CLOSING ANCESTOR (resultMap code style).
-        // Usually, <result> tags are self-closing or one-liners. They are children of resultMap/collection.
+        // 向后扫描以找到最近的封闭祖先 (resultMap 代码风格)。
+        // 通常，<result> 标签是自闭合的或单行的。它们是 resultMap/collection 的子级。
 
-        // Let's try to match the last "Open" container tag (resultMap, collection, association) before cursor.
-        // ignoring self-closing tags.
+        // 让我们尝试匹配光标前的最后一个 "Open" 容器标签 (resultMap, collection, association)，
+        // 忽略自闭合标签。
 
-        // Simplified Backwards Search
+        // 简化向后搜索
         const reversedText = text.substring(0, docOffset);
-        const containerRegex = /<(resultMap|collection|association|case)\b([^>]*)(>)/g; // Match open tags
-        // We also need to ignore matching close tags... this is getting complex for regex.
+        const containerRegex = /<(resultMap|collection|association|case)\b([^>]*)(>)/g; // 匹配开始标签
+        // 我们还需要忽略匹配的结束标签... 这对于正则来说变得很复杂。
 
-        // Let's reuse the forward stack approach from beginning of file. It's fast enough for standard files.
+        // 让我们重用文件开头的正向堆栈方法。对于标准文件来说足够快。
         const parentType = this.findParentType(text, docOffset);
 
         if (!parentType) return;
@@ -187,7 +187,7 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
     private findParentType(text: string, offset: number): string | undefined {
         const regex = /<\/?(resultMap|collection|association|case)\b([^>]*?)(?:\/?>)/g;
         let match;
-        const stack: string[] = []; // Stores Types
+        const stack: string[] = []; // 存储类型
 
         while ((match = regex.exec(text))) {
             if (match.index >= offset) break;
@@ -201,23 +201,23 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
             if (isClosing) {
                 if (stack.length > 0) stack.pop();
             } else if (!isSelfClosing) {
-                // Opening tag
+                // 打开标签
                 let type = this.extractType(attrs);
 
-                // If no type specified, maybe inherit? (e.g. association without javaType usually implies type from field, complicated)
-                // For now push what we found or 'UNKNOWN' to keep stack balanced
-                // But wait, if type is null, do we push? Yes, to match closing tag.
-                // If it's undefined, we might check if we can inherit from stack top?
+                // 如果未指定类型，也许继承？(例如没有 javaType 的 association 通常意味着从字段推断，这很复杂)
+                // 现在推送我们找到的或 'UNKNOWN' 以保持堆栈平衡
+                // 但是等等，如果类型为 null，我们要推送吗？是的，为了匹配关闭标签。
+                // 如果是 undefined，我们可以检查是否可以从堆栈顶部继承？
                 // <resultMap type="A"> <association property="b"> ... </association> </resultMap>
-                // Inside association, type is type of "b" in "A".
-                // This requires resolving property "b" in "A".
+                // 在 association 内部，类型是 "A" 中 "b" 的类型。
+                // 这需要解析 "A" 中的属性 "b"。
 
                 if (!type && stack.length > 0) {
-                    // Try to resolve 'property' attribute to find type
+                    // 尝试解析 'property' 属性以找到类型
                     const propMatch = /property=["']([^"']+)["']/.exec(attrs);
                     if (propMatch) {
-                        // Resolve type check logic... skipping for MVP speed.
-                        // Use UNKNOWN to avoid breaking stack.
+                        // 解析类型检查逻辑... 跳过以保证速度。
+                        // 使用 UNKNOWN 以避免破坏堆栈。
                         type = 'UNKNOWN';
                     }
                 }
@@ -226,8 +226,8 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
             }
         }
 
-        // The type at top of stack is our parent container's type.
-        // Filter out UNKNOWN
+        // 栈顶的类型是我们父容器的类型。
+        // 过滤掉 UNKNOWN
         while (stack.length > 0) {
             const top = stack[stack.length - 1];
             if (top && top !== 'UNKNOWN') return top;

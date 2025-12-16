@@ -6,11 +6,11 @@ export class ProjectIndexer {
     private static instance: ProjectIndexer;
     private outputChannel: vscode.OutputChannel;
 
-    // Cache: Full Class Name -> JavaInterface (Mappers)
+    // 缓存: 全类名 -> JavaInterface (Mappers)
     private javaMap = new Map<string, JavaInterface>();
-    // Cache: Full Class Name -> JavaClass (DTOs/Entities)
+    // 缓存: 全类名 -> JavaClass (DTOs/Entities)
     private dtoMap = new Map<string, JavaClass>();
-    // Cache: Namespace -> MapperXml
+    // 缓存: Namespace -> MapperXml
     private xmlMap = new Map<string, MapperXml>();
 
     private _onDidUpdateIndex = new vscode.EventEmitter<void>();
@@ -28,7 +28,7 @@ export class ProjectIndexer {
     }
 
     public async init() {
-        this.outputChannel.appendLine('[Indexer] Starting full project scan...');
+        this.outputChannel.appendLine('[索引器] 开始全项目扫描...');
         const start = Date.now();
 
         const config = vscode.workspace.getConfiguration('mybatisToolkit');
@@ -43,7 +43,7 @@ export class ProjectIndexer {
         const xmlFiles = await vscode.workspace.findFiles('**/*.xml', excludePattern);
         await Promise.all(xmlFiles.map(file => this.parseXmlFile(file)));
 
-        this.outputChannel.appendLine(`[Indexer] Scan complete in ${Date.now() - start}ms. Mappers: ${this.javaMap.size}, DTOs: ${this.dtoMap.size}, XML: ${this.xmlMap.size}`);
+        this.outputChannel.appendLine(`[索引器] 扫描完成，耗时 ${Date.now() - start}ms。Mappers: ${this.javaMap.size}, DTOs: ${this.dtoMap.size}, XML: ${this.xmlMap.size}`);
         this._onDidUpdateIndex.fire();
 
         const watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,xml}');
@@ -71,7 +71,7 @@ export class ProjectIndexer {
     private async handleFileChange(uri: vscode.Uri) {
         // 检查文件是否在排除目录中
         if (this.shouldExclude(uri)) {
-            this.outputChannel.appendLine(`[Indexer] Skipping excluded file: ${uri.fsPath}`);
+            this.outputChannel.appendLine(`[索引器] 跳过排除的文件: ${uri.fsPath}`);
             return;
         }
 
@@ -85,7 +85,7 @@ export class ProjectIndexer {
 
     private handleFileDelete(uri: vscode.Uri) {
         const normPath = JavaAstUtils.normalizePath(uri.fsPath);
-        // Clean all maps
+        // 清除所有映射
         [this.javaMap, this.dtoMap].forEach(map => {
             for (const [key, val] of map) {
                 if (JavaAstUtils.normalizePath(val.fileUri.fsPath) === normPath) map.delete(key);
@@ -122,10 +122,10 @@ export class ProjectIndexer {
                 };
                 this.javaMap.set(fullName, javaInterface);
             } else {
-                // It's a Class (DTO, Entity)
+                // 这是一个类 (DTO, Entity)
                 const fields = JavaAstUtils.getFields(content);
-                const imports = JavaAstUtils.getImports(content); // Also capture imports for Classes
-                const parentClassName = JavaAstUtils.getParentClassName(content); // Capture parent class
+                const imports = JavaAstUtils.getImports(content); // 也捕获类的导入
+                const parentClassName = JavaAstUtils.getParentClassName(content); // 捕获父类
 
                 const javaClass: JavaClass = {
                     name: simpleName,
@@ -139,7 +139,7 @@ export class ProjectIndexer {
             }
 
         } catch (e) {
-            this.outputChannel.appendLine(`[Error] Parsing Java file ${uri.fsPath}: ${e}`);
+            this.outputChannel.appendLine(`[错误] 解析 Java 文件 ${uri.fsPath} 失败: ${e}`);
         }
     }
 
@@ -162,18 +162,18 @@ export class ProjectIndexer {
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
 
-                // Parse Statements
+                // 解析 Statements
                 const stmtMatch = line.match(stmtRegex);
                 if (stmtMatch) {
                     statements.set(stmtMatch[2], {
                         id: stmtMatch[2],
                         type: stmtMatch[1] as any,
                         line: i,
-                        resultMap: stmtMatch[3] // Capture resultMap if present
+                        resultMap: stmtMatch[3] // 如果存在，捕获 resultMap
                     });
                 }
 
-                // Parse ResultMaps
+                // 解析 ResultMaps
                 const resultMapMatch = line.match(resultMapRegex);
                 if (resultMapMatch) {
                     resultMaps.set(resultMapMatch[1], {
@@ -193,7 +193,7 @@ export class ProjectIndexer {
 
             this.xmlMap.set(namespace, xmlInfo);
         } catch (e) {
-            this.outputChannel.appendLine(`[Error] Parsing XML file ${uri.fsPath}: ${e}`);
+            this.outputChannel.appendLine(`[错误] 解析 XML 文件 ${uri.fsPath} 失败: ${e}`);
         }
     }
 
