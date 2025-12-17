@@ -2,7 +2,7 @@
   "name": "mybatis-toolkit-pro",
   "displayName": "MyBatis Toolkit Pro",
   "description": "专业的 MyBatis 开发工具包",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "xiyeming",
   "license": "MIT",
   "keywords": [
@@ -68,6 +68,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "mybatisToolkit.editConnection",
+        "title": "编辑连接",
+        "icon": "$(edit)"
+      },
+      {
         "command": "mybatisToolkit.connect",
         "title": "连接",
         "icon": "$(plug)"
@@ -113,6 +118,11 @@
         {
           "command": "mybatisToolkit.disconnect",
           "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection && mybatisToolkit.connected",
+          "group": "inline"
+        },
+        {
+          "command": "mybatisToolkit.editConnection",
+          "when": "view == mybatisToolkit.databaseExplorer && viewItem == connection",
           "group": "inline"
         },
         {
@@ -186,6 +196,21 @@
               "name": {
                 "type": "string"
               },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "MySQL",
+                  "PostgreSQL",
+                  "Oracle",
+                  "SQL Server",
+                  "SQLite",
+                  "DB2",
+                  "H2",
+                  "MariaDB"
+                ],
+                "default": "MySQL",
+                "description": "数据库类型"
+              },
               "host": {
                 "type": "string"
               },
@@ -203,6 +228,21 @@
               }
             }
           }
+        },
+        "mybatisToolkit.defaultDatabaseType": {
+          "type": "string",
+          "enum": [
+            "MySQL",
+            "PostgreSQL",
+            "Oracle",
+            "SQL Server",
+            "SQLite",
+            "DB2",
+            "H2",
+            "MariaDB"
+          ],
+          "default": "MySQL",
+          "description": "默认数据库类型"
         },
         "mybatisToolkit.database.host": {
           "type": "string",

@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
 
+import { DatabaseService } from '../services/DatabaseService';
+import { DialectFactory } from '../services/dialects/DialectFactory';
+import { Dialect } from '../services/dialects/Dialect';
+
 // Token 类型
 enum TokenType {
     Keyword,
@@ -26,17 +30,32 @@ interface Token {
 
 export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvider {
 
+    constructor(private dbService: DatabaseService) { }
+
+    private getDialect(): Dialect {
+        const activeType = this.dbService.getActiveDatabaseType();
+        if (activeType) {
+            return DialectFactory.getDialect(activeType);
+        }
+        const config = vscode.workspace.getConfiguration('mybatisToolkit');
+        const defaultType = config.get<string>('defaultDatabaseType', 'MySQL');
+        return DialectFactory.getDialect(defaultType);
+    }
+
     public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.TextEdit[] {
         const text = document.getText();
         const indentSize = options.tabSize;
 
-        // 1. 分词 (Tokenize)
-        const tokens = this.tokenize(text);
+        // 1. 获取 Dialect
+        const dialect = this.getDialect();
 
-        // 2. 格式化 (Format)
-        const formattedText = this.format(tokens, indentSize);
+        // 2. 分词 (Tokenize)
+        const tokens = this.tokenize(text, dialect);
 
-        // 3. 返回编辑 (替换全文)
+        // 3. 格式化 (Format)
+        const formattedText = this.format(tokens, indentSize, dialect);
+
+        // 4. 返回编辑 (替换全文)
         const fullRange = new vscode.Range(
             document.positionAt(0),
             document.positionAt(text.length)
@@ -44,34 +63,29 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         return [vscode.TextEdit.replace(fullRange, formattedText)];
     }
 
-    private tokenize(text: string): Token[] {
+    private tokenize(text: string, dialect: Dialect): Token[] {
         const tokens: Token[] = [];
         let i = 0;
         const length = text.length;
 
-        // 正则表达式
+        // XML RegEx
         const xmlPrologRegex = /^<\s*\?\s*xml[\s\S]*?\?>/i;
         const xmlDoctypeRegex = /^<\s*!\s*DOCTYPE[\s\S]*?>/i;
         const xmlCommentRegex = /^<\s*!\s*--[\s\S]*?--\s*>/;
         const xmlCdataRegex = /^<\s*!\[CDATA\[[\s\S]*?\]\]>/i;
-
-        // 标签正则：匹配 < tag ... >，支持跨行，处理包含 > 的引用字符串
         const xmlTagRegex = /^<\s*(\/?)\s*([\w:\-\.]+)(?:[^>"']|"[^"]*"|'[^']*')*?(\/?)>/;
-
-        // 实体正则：&name; 或 &#123; 或 &#x123;
         const entityRegex = /^&(#x?[0-9a-fA-F]+|[a-zA-Z0-9]+);/;
-
         const variableRegex = /^[\#\$]\{[^\}]*\}/;
-        // 字符串正则：允许单引号和双引号
-        const stringRegex = /^('[^']*'|"[^"]*")/;
-
         const wordRegex = /^[\w\.]+/;
+
+        // Dialect specific
+        const quoteChar = dialect.getQuoteChar();
 
         while (i < length) {
             const char = text[i];
             const rest = text.slice(i);
 
-            // 1. 空白字符
+            // 1. Whitespace
             if (/\s/.test(char)) {
                 if (char === '\n' || (char === '\r' && (i + 1 < length && text[i + 1] === '\n'))) {
                     tokens.push({ type: TokenType.Newline, value: '\n' });
@@ -83,41 +97,32 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 continue;
             }
 
-            // 2. XML 结构 (以 < 开头)
+            // 2. XML Structures
             if (char === '<') {
-                // 序言 (?xml)
                 let m = rest.match(xmlPrologRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlProlog, value: m[0] });
                     i += m[0].length;
                     continue;
                 }
-
-                // 文档类型 (!DOCTYPE)
                 m = rest.match(xmlDoctypeRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlProlog, value: m[0] });
                     i += m[0].length;
                     continue;
                 }
-
-                // 注释 (!--)
                 m = rest.match(xmlCommentRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlComment, value: m[0] });
                     i += m[0].length;
                     continue;
                 }
-
-                // CDATA 数据 (![CDATA[)
                 m = rest.match(xmlCdataRegex);
                 if (m) {
                     tokens.push({ type: TokenType.XmlCdata, value: m[0] });
                     i += m[0].length;
                     continue;
                 }
-
-                // 标签
                 const tagMatch = rest.match(xmlTagRegex);
                 if (tagMatch) {
                     tokens.push({ type: TokenType.XmlTag, value: tagMatch[0] });
@@ -126,7 +131,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 3. 变量
+            // 3. Variables
             if (char === '#' || char === '$') {
                 const varMatch = rest.match(variableRegex);
                 if (varMatch) {
@@ -136,17 +141,72 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 4. 字符串 (单引号和双引号)
-            if (char === "'" || char === '"') {
-                const strMatch = rest.match(stringRegex);
-                if (strMatch) {
-                    tokens.push({ type: TokenType.String, value: strMatch[0] });
-                    i += strMatch[0].length;
+            // 4. Quote (Identifier) - Dialect Specific
+            if (char === quoteChar || (quoteChar === ']' && char === '[')) {
+                const endChar = (char === '[') ? ']' : quoteChar;
+                // Simple search for endChar
+                // TODO: handle escaping
+                const endIdx = rest.indexOf(endChar, 1);
+                if (endIdx !== -1) {
+                    tokens.push({ type: TokenType.Identifier, value: rest.substring(0, endIdx + 1) });
+                    i += endIdx + 1;
                     continue;
                 }
             }
 
-            // 5. 普通注释 (SQL -- 风格，防止用户混合使用)
+            // 4b. Backtick (Commonly used in MySQL/Generic, handle as ID if not main quote)
+            if (char === '`' && quoteChar !== '`') {
+                const endIdx = rest.indexOf('`', 1);
+                if (endIdx !== -1) {
+                    tokens.push({ type: TokenType.Identifier, value: rest.substring(0, endIdx + 1) });
+                    i += endIdx + 1;
+                    continue;
+                }
+            }
+
+            // 5. String (Single Quote mainly, Double Quote if not Identifier)
+            if (char === "'") {
+                // Match string
+                // Handle escaped quotes ''
+                let end = 1;
+                while (end < rest.length) {
+                    if (rest[end] === "'") {
+                        if (end + 1 < rest.length && rest[end + 1] === "'") {
+                            end += 2; // skip escaped
+                            continue;
+                        }
+                        break;
+                    }
+                    end++;
+                }
+                if (end < rest.length) {
+                    tokens.push({ type: TokenType.String, value: rest.substring(0, end + 1) });
+                    i += end + 1;
+                    continue;
+                }
+            }
+
+            if (char === '"' && quoteChar !== '"') {
+                // Treat as string (MySQL style)
+                let end = 1;
+                while (end < rest.length) {
+                    if (rest[end] === '"') {
+                        if (end + 1 < rest.length && rest[end + 1] === '"') {
+                            end += 2;
+                            continue;
+                        }
+                        break;
+                    }
+                    end++;
+                }
+                if (end < rest.length) {
+                    tokens.push({ type: TokenType.String, value: rest.substring(0, end + 1) });
+                    i += end + 1;
+                    continue;
+                }
+            }
+
+            // 6. Comments (SQL --)
             if (rest.startsWith('--')) {
                 const nl = rest.indexOf('\n');
                 const comment = nl === -1 ? rest : rest.substring(0, nl);
@@ -155,28 +215,26 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 continue;
             }
 
-            // 6. XML 实体 (以 & 开头)
+            // 7. Entities
             if (char === '&') {
-                // 首先检查实体引用的字符串
-                // &apos;...&apos;
                 if (rest.startsWith('&apos;')) {
                     const end = rest.indexOf('&apos;', 6);
                     if (end !== -1) {
+                        // &apos;...&apos; treated as String
                         tokens.push({ type: TokenType.String, value: rest.substring(0, end + 6) });
                         i += end + 6;
                         continue;
                     }
                 }
-                // &quot;...&quot;
                 if (rest.startsWith('&quot;')) {
                     const end = rest.indexOf('&quot;', 6);
                     if (end !== -1) {
+                        // &quot;...&quot; treated as String (or ID?) - let's say String for XML context consistency
                         tokens.push({ type: TokenType.String, value: rest.substring(0, end + 6) });
                         i += end + 6;
                         continue;
                     }
                 }
-
                 const entityMatch = rest.match(entityRegex);
                 if (entityMatch) {
                     tokens.push({ type: TokenType.Entity, value: entityMatch[0] });
@@ -185,23 +243,22 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 7. 多字符运算符
+            // 8. Operators
             if (/^(\>=|\<=|\!=|\<\>)/.test(rest)) {
                 tokens.push({ type: TokenType.Operator, value: rest.substring(0, 2) });
                 i += 2;
                 continue;
             }
 
-            // 7. 单词
+            // 9. Words (Keywords/Functions/Identifiers)
             if (/[a-zA-Z0-9_]/.test(char)) {
                 const match = rest.match(wordRegex);
                 if (match) {
                     const word = match[0];
-                    const uppercase = word.toUpperCase();
-                    if ([
-                        'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'UNION', 'ALL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'ON', 'AS', 'IN', 'IS', 'NULL', 'LIKE', 'BETWEEN', 'EXISTS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'DESC', 'ASC'
-                    ].includes(uppercase)) {
-                        tokens.push({ type: TokenType.Keyword, value: uppercase });
+                    if (dialect.isKeyword(word)) {
+                        tokens.push({ type: TokenType.Keyword, value: word.toUpperCase() }); // Normalize case
+                    } else if (dialect.getFunctions().includes(word.toUpperCase())) {
+                        tokens.push({ type: TokenType.Function, value: word }); // Keep original case or normalize?
                     } else {
                         tokens.push({ type: TokenType.Identifier, value: word });
                     }
@@ -210,14 +267,14 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 }
             }
 
-            // 8. 符号
+            // 10. Symbols
             tokens.push({ type: TokenType.Symbol, value: char });
             i++;
         }
         return tokens;
     }
 
-    private format(tokens: Token[], indentSize: number): string {
+    private format(tokens: Token[], indentSize: number, dialect: Dialect): string {
         let output = "";
 
         let xmlDepth = 0;
@@ -453,6 +510,39 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                         const nextKw = this.findNextKeyword(tokens, i);
                         const isSubquery = nextKw === 'SELECT';
 
+                        // 检查前一个 token 是否为函数类型以避免空格
+                        // 例如 COUNT (...)
+                        let prevT = i > 0 ? tokens[i - 1] : null;
+                        // 向上跳过空白/注释？格式化循环线性处理 token，包括空白 token
+                        // 但是等等，我们的 'tokens' 数组中有空白 token（参见 tokenize）。
+                        // 如果我们正在迭代 'tokens'，i-1 可能是空白。
+                        // 我们需要找到“有效”的前一个 token。
+                        // 但是 'spaceRequested' 标志处理插入空格的逻辑。
+                        // 问题是：spaceRequested = true 可能是由前一个 token 处理设置的。
+                        // 如果前一个是 Function，它设置 spaceRequested=true??
+                        // 让我们检查 'Identifier' 或 'Function' 的情况。
+                        // 实际上，让我们看看我们如何处理 Function/Identifier。
+                        // 情况 Function: append(val). 默认: spaceRequested=true?
+
+                        // 检查前一个 token 以避免空格
+                        // 例如 COUNT(...), OVER(...)
+
+                        // 如果我们是 '(' 且前一个是 Function/Identifier/OVER，我们需要追溯抑制空格。
+                        const prevReal = this.findPrevToken(tokens, i);
+                        if (prevReal) {
+                            if (prevReal.type === TokenType.Function) {
+                                spaceRequested = false;
+                            } else if (prevReal.type === TokenType.Identifier) {
+                                // 用户定义的函数或未分类的函数 -> 无空格
+                                spaceRequested = false;
+                            } else if (prevReal.type === TokenType.Keyword) {
+                                // 看起来像函数的特定关键字
+                                if (['OVER', 'CAST', 'CONVERT', 'EXTRACT', 'TRIM', 'POSITION', 'SUBSTRING', 'OVERLAY'].includes(prevReal.value.toUpperCase())) {
+                                    spaceRequested = false;
+                                }
+                            }
+                        }
+
                         if (isSubquery) {
                             append(token.value);
                             subqueryDepth++;
@@ -544,6 +634,16 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             if (tokens[i].type === TokenType.Keyword) return tokens[i].value;
             if (tokens[i].type === TokenType.Symbol || tokens[i].type === TokenType.Identifier) return null;
             // 跳过注释/空白，但在其他地方停止
+        }
+        return null;
+    }
+
+    private findPrevToken(tokens: Token[], index: number): Token | null {
+        for (let i = index - 1; i >= 0; i--) {
+            const t = tokens[i];
+            if (t.type !== TokenType.Whitespace && t.type !== TokenType.Newline && t.type !== TokenType.XmlComment) {
+                return t;
+            }
         }
         return null;
     }
@@ -757,6 +857,22 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     // 点或左括号之后无空格
                 } else if (t.value === ')') {
                     // 右括号之前无空格
+                } else if (t.value === '(') {
+                    // 检查我们是否应该在 '(' 之前添加空格
+                    let suppressSpace = false;
+                    if (prev.type === TokenType.Function) {
+                        suppressSpace = true;
+                    } else if (prev.type === TokenType.Identifier) {
+                        suppressSpace = true;
+                    } else if (prev.type === TokenType.Keyword) {
+                        if (['OVER', 'CAST', 'CONVERT', 'EXTRACT', 'TRIM', 'POSITION', 'SUBSTRING', 'OVERLAY'].includes(prev.value.toUpperCase())) {
+                            suppressSpace = true;
+                        }
+                    }
+
+                    if (!suppressSpace) {
+                        out += " ";
+                    }
                 } else {
                     out += " ";
                 }

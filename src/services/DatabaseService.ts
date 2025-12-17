@@ -56,7 +56,8 @@ export class DatabaseService {
                     port: dbConfig.get('port', 3306),
                     user: dbConfig.get('user', 'root'),
                     password: dbConfig.get('password', ''),
-                    database: dbConfig.get('database', '')
+                    database: dbConfig.get('database', ''),
+                    type: 'MySQL'
                 };
                 this.addConnection(legacy);
             }
@@ -78,6 +79,17 @@ export class DatabaseService {
             await this.disconnect();
         }
         await this.saveConnections();
+    }
+
+    public async updateConnection(config: ConnectionConfig) {
+        const index = this.connections.findIndex(c => c.id === config.id);
+        if (index !== -1) {
+            this.connections[index] = config;
+            // 如果更新活动连接，也许重新连接或至少确保下次使用新配置??
+            // 目前，如果用户更改参数，通过手动重新连接。
+            // 最小化：仅保存。
+            await this.saveConnections();
+        }
     }
 
     private async saveConnections() {
@@ -136,6 +148,12 @@ export class DatabaseService {
 
     public getActiveConnectionId(): string | undefined {
         return this.activeConnectionId;
+    }
+
+    public getActiveDatabaseType(): string | undefined {
+        if (!this.activeConnectionId) return undefined;
+        const config = this.connections.find(c => c.id === this.activeConnectionId);
+        return config?.type;
     }
 
     public async init() {

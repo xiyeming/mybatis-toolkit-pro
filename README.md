@@ -18,15 +18,26 @@
     -   **数据库表**：点击 XML 中的表名跳转到虚拟架构视图。
     -   **ResultMap 属性**：按住 Cmd+Click (Ctrl+Click) 点击 `<resultMap>` 中的 `property` 属性跳转到 Java 字段定义。
     -   **Java 类**：跳转到 `resultType` 或 `parameterType` 对应的 Java 类。
+-   **悬停提示**：
+    -   **MyBatis 参数**：悬停在 XML 中的 `#{variable}` 或 `${variable}` 上，可查看对应的 Java 类型及 Javadoc 注释。
 
 ### 2. 强大的 SQL 高亮与格式化
--   **增强高亮**：支持 SQL 关键字、函数及 MyBatis 参数 (`#{...}`, `${...}`)。
--   **格式化**：自动格式化 XML 中的 SQL 代码块。
+-   **多数据库方言支持**：全面支持 **MySQL, PostgreSQL, Oracle, SQL Server, SQLite, DB2, H2, MariaDB** 8 种主流数据库方言。
+-   **增强高亮**：根据所选方言，智能高亮 SQL 关键字、系统函数及 MyBatis 参数 (`#{...}`, `${...}`)。例如，在 PostgreSQL 模式下会高亮 `RETURNING`, `ILIKE` 等特有关键字。
+-   **智能格式化**：
+    -   根据方言规则自动处理引号（如 MySQL 的 \`，SQL Server 的 `[]`，Oracle/PG 的 `""`）。
+    -   支持复杂的 SQL 结构格式化，包括嵌套子查询、`UNION`、`CASE WHEN` 等。
+    -   **注释保留**：格式化时完整保留 XML 注释 (`<!-- -->`) 和 SQL 注释 (`--`)。
+
+> [!TIP]
+> **提示**：插件会自动根据当前激活的数据库连接推断方言。您也可以在设置中配置 `mybatisToolkit.defaultDatabaseType` 来指定默认使用的数据库方言。
 
 ### 3. 数据库管理器 & 多数据源
--   **多连接管理**：在侧边栏管理多个 MySQL 连接（主机、端口、用户、密码、库名）。
+-   **多连接管理**：支持连接多种数据库（MySQL, PostgreSQL, Oracle, SQL Server, SQLite, DB2, H2, MariaDB）。
 -   **虚拟架构视图**：直接在 VS Code 中查看表结构和**注释**。
--   **注释显示**：数据库资源管理器树状图中直接显示表和字段的注释。
+-   **注释提示**：
+    -   数据库资源管理器树状图中直接显示表和字段的注释。
+    -   鼠标悬停在表名或字段名上时显示详细注释信息。
 
 ### 4. 高级验证
 -   **SQL 实时验证**：实时验证 SQL 中的表名和列名。

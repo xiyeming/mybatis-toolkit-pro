@@ -61,9 +61,12 @@ export interface ResultMapInfo {
     type: string; // 映射到的 Java 类型
 }
 
+export type DatabaseType = 'MySQL' | 'PostgreSQL' | 'Oracle' | 'SQL Server' | 'SQLite' | 'DB2' | 'H2' | 'MariaDB';
+
 export interface ConnectionConfig {
     id: string;
     name: string;
+    type: DatabaseType;
     host: string;
     port: number;
     user: string;

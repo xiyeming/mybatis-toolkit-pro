@@ -10,6 +10,8 @@ Professional MyBatis development toolkit for VS Code, designed to boost your pro
 -   **Go to Definition**:
     -   **Table Names**: Click on a table name in XML to jump to a schema view.
     -   **ResultMap Properties**: Cmd+Click (Ctrl+Click) on `property` attributes in `<resultMap>` to jump to the Java field definition.
+-   **Hover Hints**:
+    -   **MyBatis Parameters**: Hover over `#{variable}` or `${variable}` in XML to view the corresponding Java type and Javadoc.
 
 ### 2. Rich SQL Highlighting
 -   **Enhanced Syntax Highlighting**: Full support for SQL keywords, functions, and MyBatis parameters (`#{...}`, `${...}`).
