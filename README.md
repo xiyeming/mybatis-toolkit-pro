@@ -1,35 +1,38 @@
 # MyBatis Toolkit Pro
 
+![MyBatis Toolkit Pro](images/mybatis.png)
+
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/xiyeming.mybatis-toolkit-pro)](https://marketplace.visualstudio.com/items?itemName=xiyeming.mybatis-toolkit-pro)
+[![GitHub stars](https://img.shields.io/github/stars/xiyeming/mybatis-toolkit-pro)](https://github.com/xiyeming/mybatis-toolkit-pro)
+[![License](https://img.shields.io/github/license/xiyeming/mybatis-toolkit-pro)](https://github.com/xiyeming/mybatis-toolkit-pro/blob/main/LICENSE.md)
+[![Version](https://img.shields.io/badge/version-1.1.4-blue)](https://github.com/xiyeming/mybatis-toolkit-pro/releases)
+
 [English](README_en.md) | [中文](README.md)
 
 专为 VS Code 设计的专业 MyBatis 开发工具包，通过智能导航、SQL 验证、多数据源管理与内置查询执行，提升 MyBatis 与数据库开发效率。
 
+## ✨ 主要特性
+
+- 🚀 **智能导航**：Mapper ↔ XML 跳转、表名/ResultMap 属性/Java 类跳转、参数悬停与类型提示
+- 🎨 **SQL 高亮与格式化**：8 种数据库方言、关键字/函数/参数高亮、可配置引号与缩进
+- 🗄️ **数据库管理**：多连接、数据库浏览器、表结构查看、执行 SQL 与结果展示
+- 🔍 **查询与结果**：新建查询、执行选中/全部 SQL、分页、行号、可配置日期格式、多结果窗口
+- ✅ **高级验证**：表/列存在性、resultMap/resultType 与 Java 属性匹配、嵌套 association/collection
+- 🛠️ **代码生成**：从表生成 Entity / Mapper 接口 / XML
+- ⚡ **方法名生成 SQL**：根据 Mapper 方法名生成 XML SQL（Quick Fix）
+
 ---
 
-## 安装
+## 📦 安装
 
-- **VS Code 扩展市场**：搜索 “MyBatis Toolkit Pro” 安装。
-- **VSIX**：在 [Releases](https://github.com/xiyeming/mybatis-toolkit-pro/releases) 下载 `.vsix`，通过 “从 VSIX 安装…” 安装。
+- **VS Code 扩展市场**：搜索 "MyBatis Toolkit Pro" 并安装。
+- **VSIX**：从 [Releases](https://github.com/xiyeming/mybatis-toolkit-pro/releases) 下载 `.vsix`，通过 "从 VSIX 安装…" 安装。
 
 **要求**：VS Code 1.100.0 及以上。
 
 ---
 
-## 功能概览
-
-| 模块           | 说明 |
-|----------------|------|
-| 智能导航       | Mapper ↔ XML 跳转、表名/ResultMap 属性/Java 类跳转、参数悬停与类型提示 |
-| SQL 高亮与格式化 | 8 种数据库方言、关键字/函数/参数高亮、可配置引号与缩进 |
-| 数据库管理     | 多连接、数据库浏览器、表结构查看、执行 SQL 与结果展示 |
-| 查询与结果     | 新建查询、执行选中/全部 SQL、分页、行号、可配置日期格式、多结果窗口 |
-| 验证           | 表/列存在性、resultMap/resultType 与 Java 属性匹配、嵌套 association/collection |
-| 代码生成       | 从表生成 Entity / Mapper 接口 / XML |
-| 方法名生成 SQL | 根据 Mapper 方法名生成 XML SQL（Quick Fix） |
-
----
-
-## 一、智能导航
+## 🚀 一、智能导航
 
 - **跳转到定义**
   - **数据库表**：在 XML 中点击表名 → 跳转到虚拟架构视图。
@@ -40,7 +43,7 @@
 
 ---
 
-## 二、SQL 高亮与格式化
+## 🎨 二、SQL 高亮与格式化
 
 - **方言**：支持 MySQL、PostgreSQL、Oracle、SQL Server、SQLite、DB2、H2、MariaDB。
 - **高亮**：关键字、系统函数、MyBatis 参数；方言特有关键字（如 PostgreSQL 的 `RETURNING`、`ILIKE`）。
@@ -49,7 +52,7 @@
 
 ---
 
-## 三、数据库管理与查询执行
+## 🗄️ 三、数据库管理与查询执行
 
 ### 3.1 数据库浏览器（侧栏 MyBatis）
 
@@ -88,7 +91,7 @@
 
 ---
 
-## 四、高级验证
+## ✅ 四、高级验证
 
 - **SQL 验证**：实时检查 SQL 中的表名、列名是否存在。
 - **结果映射**：检查 `resultMap` / `resultType` 与 Java 类属性是否一致（含下划线转驼峰）。
@@ -97,14 +100,14 @@
 
 ---
 
-## 五、代码生成
+## 🛠️ 五、代码生成
 
 - 在**数据库浏览器**中右键表 →「生成代码 (Entity/Mapper/XML)」。
 - 按提示输入包名，自动生成 Entity、Mapper 接口与 XML，含基础 CRUD 与类型映射，可选 Lombok。
 
 ---
 
-## 六、方法名生成 SQL
+## ⚡ 六、方法名生成 SQL
 
 - 在 Mapper 接口中写方法名（如 `selectUserByNameAndAge`），出现灯泡时选择 Quick Fix，自动在对应 XML 中生成 SQL。
 - 支持前缀：`select`、`update`、`delete`、`count`、`insert`；条件连接：`And`、`Or`；后缀如 `Like`、`In` 等。

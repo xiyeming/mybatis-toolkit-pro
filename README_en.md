@@ -1,12 +1,29 @@
 # MyBatis Toolkit Pro
 
+![MyBatis Toolkit Pro](images/mybatis.png)
+
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/xiyeming.mybatis-toolkit-pro)](https://marketplace.visualstudio.com/items?itemName=xiyeming.mybatis-toolkit-pro)
+[![GitHub stars](https://img.shields.io/github/stars/xiyeming/mybatis-toolkit-pro)](https://github.com/xiyeming/mybatis-toolkit-pro)
+[![License](https://img.shields.io/github/license/xiyeming/mybatis-toolkit-pro)](https://github.com/xiyeming/mybatis-toolkit-pro/blob/main/LICENSE.md)
+[![Version](https://img.shields.io/badge/version-1.1.4-blue)](https://github.com/xiyeming/mybatis-toolkit-pro/releases)
+
 [English](README_en.md) | [中文](README.md)
 
 Professional MyBatis development toolkit for VS Code. Improve productivity with smart navigation, SQL validation, multi-datasource management, and built-in query execution.
 
+## ✨ Key Features
+
+- 🚀 **Smart Navigation**: Mapper ↔ XML jump, table/ResultMap property/Java class go-to-definition, parameter hover and type hints
+- 🎨 **SQL Highlighting & Formatting**: 8 database dialects, keyword/function/parameter highlighting, configurable quotes and indent
+- 🗄️ **Database Management**: Multiple connections, Database Explorer, table schema view, run SQL and view results
+- 🔍 **Query & Results**: New query, run selected/all SQL, pagination, row numbers, configurable date format, multiple result tabs
+- ✅ **Advanced Validation**: Table/column existence, resultMap/resultType vs Java property matching, nested association/collection
+- 🛠️ **Code Generation**: Generate Entity / Mapper interface / XML from table
+- ⚡ **Method-to-SQL**: Generate XML SQL from Mapper method name (Quick Fix)
+
 ---
 
-## Installation
+## 📦 Installation
 
 - **VS Code Marketplace**: Search for "MyBatis Toolkit Pro" and install.
 - **VSIX**: Download the `.vsix` from [Releases](https://github.com/xiyeming/mybatis-toolkit-pro/releases) and install via "Install from VSIX...".
@@ -15,21 +32,7 @@ Professional MyBatis development toolkit for VS Code. Improve productivity with 
 
 ---
 
-## Feature Overview
-
-| Module | Description |
-|--------|-------------|
-| Smart Navigation | Mapper ↔ XML jump, table/ResultMap property/Java class go-to-definition, parameter hover and type hints |
-| SQL Highlighting & Formatting | 8 database dialects, keyword/function/parameter highlighting, configurable quotes and indent |
-| Database Management | Multiple connections, Database Explorer, table schema view, run SQL and view results |
-| Query & Results | New query, run selected/all SQL, pagination, row numbers, configurable date format, multiple result tabs |
-| Validation | Table/column existence, resultMap/resultType vs Java property matching, nested association/collection |
-| Code Generation | Generate Entity / Mapper interface / XML from table |
-| Method-to-SQL | Generate XML SQL from Mapper method name (Quick Fix) |
-
----
-
-## 1. Smart Navigation
+## 🚀 1. Smart Navigation
 
 - **Go to Definition**
   - **Database tables**: Click a table name in XML → jump to virtual schema view.
@@ -40,7 +43,7 @@ Professional MyBatis development toolkit for VS Code. Improve productivity with 
 
 ---
 
-## 2. SQL Highlighting & Formatting
+## 🎨 2. SQL Highlighting & Formatting
 
 - **Dialects**: MySQL, PostgreSQL, Oracle, SQL Server, SQLite, DB2, H2, MariaDB.
 - **Highlighting**: Keywords, system functions, MyBatis parameters; dialect-specific keywords (e.g. PostgreSQL `RETURNING`, `ILIKE`).
@@ -49,7 +52,7 @@ Professional MyBatis development toolkit for VS Code. Improve productivity with 
 
 ---
 
-## 3. Database Management & Query Execution
+## 🗄️ 3. Database Management & Query Execution
 
 ### 3.1 Database Explorer (MyBatis sidebar)
 
@@ -88,7 +91,7 @@ From the Database Explorer view title or related entry, run "Show full structure
 
 ---
 
-## 4. Advanced Validation
+## ✅ 4. Advanced Validation
 
 - **SQL validation**: Real-time check that table and column names in SQL exist.
 - **Result mapping**: Check that `resultMap` / `resultType` match Java class properties (including snake_case to camelCase).
@@ -97,14 +100,14 @@ From the Database Explorer view title or related entry, run "Show full structure
 
 ---
 
-## 5. Code Generation
+## 🛠️ 5. Code Generation
 
 - In the **Database Explorer**, right-click a table → "Generate code (Entity/Mapper/XML)".
 - Enter the package name when prompted; generates Entity, Mapper interface, and XML with basic CRUD and type mapping; Lombok optional.
 
 ---
 
-## 6. Method name to SQL
+## ⚡ 6. Method name to SQL
 
 - In a Mapper interface, write a method name (e.g. `selectUserByNameAndAge`); use the lightbulb Quick Fix to generate the corresponding XML SQL.
 - Supports prefixes: `select`, `update`, `delete`, `count`, `insert`; condition links: `And`, `Or`; suffixes like `Like`, `In`, etc.
