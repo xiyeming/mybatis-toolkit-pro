@@ -6,7 +6,6 @@ export class SqliteAdapter implements IDbAdapter {
     private db: any;
     private sqlite: any;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
 
     private async loadSqlite(): Promise<any> {
         if (this.sqlite) return this.sqlite;
@@ -31,7 +30,6 @@ export class SqliteAdapter implements IDbAdapter {
             this.db = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
     }
 
     async getTableNames(): Promise<string[]> {
@@ -48,12 +46,11 @@ export class SqliteAdapter implements IDbAdapter {
 
     getTableComment(_tableName: string): string | undefined {
         // SQLite 原生不支持表注释
-        return '';
+        return undefined;
     }
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.db) return [];
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
         const rows = this.db.prepare(`PRAGMA table_info("${tableName.replace(/"/g, '""')}")`).all();
         const columns: ColumnInfo[] = rows.map((row: any) => ({
             Field: row.name,
@@ -64,7 +61,6 @@ export class SqliteAdapter implements IDbAdapter {
             Extra: '',
             Comment: undefined
         }));
-        this.schemaCache.set(tableName, columns);
         return columns;
     }
 

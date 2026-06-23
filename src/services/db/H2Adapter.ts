@@ -13,7 +13,6 @@ export class H2Adapter implements IDbAdapter {
     private jdbc: any;
     private jinst: any;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
     private pkCache: Map<string, Set<string>> = new Map();
 
     private async loadJdbc(): Promise<{ jdbc: any; jinst: any }> {
@@ -63,7 +62,6 @@ export class H2Adapter implements IDbAdapter {
             this.pool = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
         this.pkCache.clear();
     }
 
@@ -95,7 +93,7 @@ export class H2Adapter implements IDbAdapter {
     }
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
+        if (!this.pool) return [];
         const rows = await this.query(
             `SELECT COLUMN_NAME AS "Field",
                     TYPE_NAME AS "Type",
@@ -118,7 +116,6 @@ export class H2Adapter implements IDbAdapter {
             Extra: '',
             Comment: row.Comment || undefined
         }));
-        this.schemaCache.set(tableName, columns);
         return columns;
     }
 
@@ -131,6 +128,7 @@ export class H2Adapter implements IDbAdapter {
     }
 
     async executeSql(sql: string, maxRows = 500): Promise<QueryResult> {
+        if (!this.pool) return { columns: [], rows: [], totalFetched: 0 };
         const trimmed = sql.trim();
         if (!trimmed) return { columns: [], rows: [], totalFetched: 0, message: '空语句' };
         const start = Date.now();

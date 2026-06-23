@@ -5,7 +5,6 @@ import { IDbAdapter } from './IDbAdapter';
 export class MySQLAdapter implements IDbAdapter {
     private pool: mysql.Pool | undefined;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
 
     async connect(config: ConnectionConfig): Promise<void> {
         this.pool = mysql.createPool({
@@ -28,7 +27,6 @@ export class MySQLAdapter implements IDbAdapter {
             this.pool = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
     }
 
     async getTableNames(): Promise<string[]> {
@@ -50,12 +48,10 @@ export class MySQLAdapter implements IDbAdapter {
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.pool) return [];
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
         const [rows] = await this.pool.query<mysql.RowDataPacket[]>(
             `SHOW FULL COLUMNS FROM ${mysql.escapeId(tableName)}`
         );
         const columns = rows as ColumnInfo[];
-        this.schemaCache.set(tableName, columns);
         return columns;
     }
 

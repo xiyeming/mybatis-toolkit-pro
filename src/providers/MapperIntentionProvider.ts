@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { ProjectIndexer } from '../services/ProjectIndexer';
 import { MethodSqlGenerator } from '../services/MethodSqlGenerator';
 import { JavaAstUtils } from '../utils/JavaAstUtils';
-import * as path from 'path';
 import * as fs from 'fs';
 
 export class MapperIntentionProvider implements vscode.CodeActionProvider {

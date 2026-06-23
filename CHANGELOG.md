@@ -6,6 +6,40 @@
 
 ---
 
+## [1.2.0] - 2026-06-23
+
+### 新增
+
+- **SQL 列名跳转**：在 SQL 语句中点击列名可跳转到对应 Entity 字段或 resultMap 列定义，支持别名优先（`AS alias` 及隐式空格别名），无别名时取列名最后一段转驼峰匹配。
+- **共享词法分析器**：提取 `src/utils/SqlTokenizer.ts`，统一 SQL/XML 分词逻辑，消除 `SqlFormattingProvider` 与 `SqlHighlightingProvider` 间的重复代码。
+
+### 修复
+
+- **格式化缩进默认值**：`config.ts` 中 `formatting.indentSize` 默认值由 `2` 修正为 `4`，与 `package.json` 声明一致。
+- **文案错误**：编辑连接后提示信息「已已更新」修正为「已更新」。
+- **Oracle 连接泄漏**：`OracleAdapter` 中 3 处 `conn.close()` 缺少 `await`，连接可能未正确释放回连接池，现已修复。
+- **H2 空指针**：`H2Adapter` 的 `getTableSchema` / `executeSql` 缺少 `this.pool` null 检查，未连接时调用会抛异常，已添加守卫。
+- **getTableComment 返回值**：`SqliteAdapter` / `Db2Adapter` 返回空字符串而非 `undefined`，与接口签名 `string | undefined` 语义不一致，已修正。
+- **关键字误报列名**：`LEFT`/`RIGHT`/`INSERT`/`VALUES`/`IF` 等 17 个关键字被误从 `SQL_KEYWORDS` 及全部方言列表中删除，导致验证器将其当作列名报错，已全部恢复。
+- **方言关键字完整性**：全量修复 8 个方言文件的关键字/函数列表——`MySQLDialect` 中 `Create` 大小写错误（`isKeyword('create')` 返回 false）；`OracleDialect`/`SQLServerDialect` 缺失 `JOIN`/`INNER`/`OUTER`；全部方言缺失 `REFERENCES`；7 个方言缺失 `CASCADE`；`SQLiteDialect` 拼写错误 `ACCOS`→`ACOS`、`JSON_TPYE`→`JSON_TYPE`；`H2Dialect` 可疑条目 `PC` 移除、缺失 `WITH`；`SQLite`/`DB2`/`H2`/`MariaDB` 缺失 `OVER`/`PARTITION`；`PostgreSQLDialect` `On`→`ON`；`MariaDBDialect` `Soundex`→`SOUNDEX`；全部方言去重 14 处重复条目并统一为大写。
+
+### 优化
+
+- **SQL 格式化：SQL 块隔离**：`<select>`/`<insert>`/`<update>`/`<delete>` 标签进入/退出时重置 SQL 子句状态（`clauseDepth`、`extraIndent`、括号栈等），确保每个 SQL 块互不影响。
+- **SQL 格式化：XML 标签继承缩进**：`<if>`/`<foreach>`/`<choose>` 等标签继承当前 SQL 子句缩进上下文（如 WHERE 中的 `<if>` 与 WHERE 内容对齐）。
+- **SQL 格式化：括号内缩进**：非子查询括号 `(cond1 OR cond2)` 中的内容增加一级缩进，AND/OR 正确换行。
+- **SQL 格式化：逗号逻辑**：函数括号内逗号加空格、子查询内逗号换行，通过 `parenStack` 顶值精确区分。
+
+### 重构
+
+- **删除死代码**：移除未使用的 `DatabaseManager.ts`（46 行占位实现，引用 `@dbcode/vscode-api`）。
+- **清理废弃逻辑**：`PropertyDefinitionProvider` 移除 130 行被 `findParentType` 覆盖的废弃解析代码。
+- **移除未使用 import**：`DatabaseTreeDataProvider` / `MapperIntentionProvider` 中未使用的 `import * as path`。
+- **清理残留注释**：`extension.ts` 中已删除 `DecorationProvider` 的残留注释。
+- **移除冗余缓存**：7 个 Adapter 的 `schemaCache` 与 `DatabaseService` 的 LRU 缓存重复，已移除 Adapter 层缓存，保留 Service 层统一管理。
+
+---
+
 ## [1.1.5] - 2026-06-23
 
 ### 修复

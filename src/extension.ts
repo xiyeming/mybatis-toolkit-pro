@@ -6,7 +6,6 @@ import { ProjectIndexer } from './services/ProjectIndexer';
 import { MyBatisCodeLensProvider } from './providers/MyBatisCodeLensProvider';
 import { MapperIntentionProvider } from './providers/MapperIntentionProvider';
 import { SqlFormattingProvider } from './providers/SqlFormattingProvider';
-// import { DecorationProvider } from './providers/DecorationProvider'; // Removed
 import { DatabaseService } from './services/DatabaseService';
 import { SqlValidationProvider } from './providers/SqlValidationProvider';
 import { SqlDefinitionProvider } from './providers/SqlDefinitionProvider';
@@ -57,7 +56,6 @@ export async function activate(context: vscode.ExtensionContext) {
     const codeLensProvider = new MyBatisCodeLensProvider(indexerInstance);
     const mapperIntentionProvider = new MapperIntentionProvider(indexerInstance);
     const formatProvider = new SqlFormattingProvider(dbServiceInstance);
-    // const decorationProvider = new DecorationProvider(indexerInstance); // Removed
     sqlValidationProviderInstance = new SqlValidationProvider(dbServiceInstance, indexerInstance);
     const sqlDefinitionProvider = new SqlDefinitionProvider(dbServiceInstance, indexerInstance);
     const propertyDefinitionProvider = new PropertyDefinitionProvider(indexerInstance);
@@ -104,9 +102,6 @@ export async function activate(context: vscode.ExtensionContext) {
             hoverProvider
         )
     );
-
-    // 装饰器 (代码高亮) - REMOVED
-    // context.subscriptions.push(decorationProvider);
 
     // SQL 验证
     context.subscriptions.push(sqlValidationProviderInstance);
@@ -286,7 +281,7 @@ export async function activate(context: vscode.ExtensionContext) {
                     await dbServiceInstance.connect(newConfig.id);
                 }
             } else {
-                vscode.window.showInformationMessage(`连接 ${newConfig.name} 已已更新。`);
+                vscode.window.showInformationMessage(`连接 ${newConfig.name} 已更新。`);
             }
         }),
         vscode.commands.registerCommand('mybatisToolkit.removeConnection', async (item: ConnectionItem) => {

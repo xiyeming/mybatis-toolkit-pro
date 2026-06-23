@@ -4,30 +4,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { getDefaultDatabaseType, getFormattingIndentSize } from '../config';
 import { DialectFactory } from '../services/dialects/DialectFactory';
 import { Dialect } from '../services/dialects/Dialect';
-
-// Token 类型
-enum TokenType {
-    Keyword,
-    Function,
-    Identifier,
-    String,
-    Variable, // #{...}, ${...}
-    Operator, // =, <, >, +, -, *, /
-    Symbol, // (, ), ,
-    XmlTag,
-    XmlComment, // <!-- ... -->
-    XmlProlog,  // <?xml ... ?>, <!DOCTYPE ...>
-    XmlCdata,   // <![CDATA[ ... ]]>
-    Entity,     // &lt; &gt; &amp; &apos; &quot;
-    Whitespace,
-    Newline
-}
-
-interface Token {
-    type: TokenType;
-    value: string;
-    line?: number;
-}
+import { tokenize, TokenType, Token } from '../utils/SqlTokenizer';
 
 export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvider {
 
@@ -58,8 +35,11 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         // 1. 获取 Dialect
         const dialect = this.getDialect();
 
-        // 2. 分词 (Tokenize)
-        const tokens = this.tokenize(text, dialect);
+        // 2. 分词 (Tokenize) — 关键字统一大写以简化后续比较与输出
+        const rawTokens = tokenize(text, dialect);
+        const tokens = rawTokens.map(t =>
+            t.type === TokenType.Keyword ? { ...t, value: t.value.toUpperCase() } : t
+        );
 
         // 3. 格式化 (Format)
         const formattedText = this.format(tokens, indentSize, dialect);
@@ -70,218 +50,6 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
             document.positionAt(text.length)
         );
         return [vscode.TextEdit.replace(fullRange, formattedText)];
-    }
-
-    private tokenize(text: string, dialect: Dialect): Token[] {
-        const tokens: Token[] = [];
-        let i = 0;
-        const length = text.length;
-
-        // XML RegEx
-        const xmlPrologRegex = /^<\s*\?\s*xml[\s\S]*?\?>/i;
-        const xmlDoctypeRegex = /^<\s*!\s*DOCTYPE[\s\S]*?>/i;
-        const xmlCommentRegex = /^<\s*!\s*--[\s\S]*?--\s*>/;
-        const xmlCdataRegex = /^<\s*!\[CDATA\[[\s\S]*?\]\]>/i;
-        // XML 标签：匹配 name="value" 或 name='value' 形式的属性，降低通用 [^>]* 的回溯风险
-        const xmlTagRegex = /^<\s*(\/?)\s*([\w:\-\.]+)(?:\s+[\w:\-\.]+=(?:"[^"]*"|'[^']*'))*\s*(\/?)>/;
-        const entityRegex = /^&(#x?[0-9a-fA-F]+|[a-zA-Z0-9]+);/;
-        const variableRegex = /^[\#\$]\{[^\}]*\}/;
-        const wordRegex = /^[\w\.]+/;
-
-        // Dialect specific
-        const quoteChar = dialect.getQuoteChar();
-
-        while (i < length) {
-            const char = text[i];
-            const rest = text.slice(i);
-
-            // 1. Whitespace
-            if (/\s/.test(char)) {
-                if (char === '\n' || (char === '\r' && (i + 1 < length && text[i + 1] === '\n'))) {
-                    tokens.push({ type: TokenType.Newline, value: '\n' });
-                    if (char === '\r') i++;
-                } else {
-                    tokens.push({ type: TokenType.Whitespace, value: ' ' });
-                }
-                i++;
-                continue;
-            }
-
-            // 2. XML Structures
-            if (char === '<') {
-                let m = rest.match(xmlPrologRegex);
-                if (m) {
-                    tokens.push({ type: TokenType.XmlProlog, value: m[0] });
-                    i += m[0].length;
-                    continue;
-                }
-                m = rest.match(xmlDoctypeRegex);
-                if (m) {
-                    tokens.push({ type: TokenType.XmlProlog, value: m[0] });
-                    i += m[0].length;
-                    continue;
-                }
-                m = rest.match(xmlCommentRegex);
-                if (m) {
-                    tokens.push({ type: TokenType.XmlComment, value: m[0] });
-                    i += m[0].length;
-                    continue;
-                }
-                m = rest.match(xmlCdataRegex);
-                if (m) {
-                    tokens.push({ type: TokenType.XmlCdata, value: m[0] });
-                    i += m[0].length;
-                    continue;
-                }
-                const tagMatch = rest.match(xmlTagRegex);
-                if (tagMatch) {
-                    tokens.push({ type: TokenType.XmlTag, value: tagMatch[0] });
-                    i += tagMatch[0].length;
-                    continue;
-                }
-            }
-
-            // 3. Variables
-            if (char === '#' || char === '$') {
-                const varMatch = rest.match(variableRegex);
-                if (varMatch) {
-                    tokens.push({ type: TokenType.Variable, value: varMatch[0] });
-                    i += varMatch[0].length;
-                    continue;
-                }
-            }
-
-            // 4. Quote (Identifier) - Dialect Specific
-            if (char === quoteChar || (quoteChar === ']' && char === '[')) {
-                const endChar = (char === '[') ? ']' : quoteChar;
-                // Simple search for endChar
-                // TODO: handle escaping
-                const endIdx = rest.indexOf(endChar, 1);
-                if (endIdx !== -1) {
-                    tokens.push({ type: TokenType.Identifier, value: rest.substring(0, endIdx + 1) });
-                    i += endIdx + 1;
-                    continue;
-                }
-            }
-
-            // 4b. Backtick (Commonly used in MySQL/Generic, handle as ID if not main quote)
-            if (char === '`' && quoteChar !== '`') {
-                const endIdx = rest.indexOf('`', 1);
-                if (endIdx !== -1) {
-                    tokens.push({ type: TokenType.Identifier, value: rest.substring(0, endIdx + 1) });
-                    i += endIdx + 1;
-                    continue;
-                }
-            }
-
-            // 5. String (Single Quote mainly, Double Quote if not Identifier)
-            if (char === "'") {
-                // Match string
-                // Handle escaped quotes ''
-                let end = 1;
-                while (end < rest.length) {
-                    if (rest[end] === "'") {
-                        if (end + 1 < rest.length && rest[end + 1] === "'") {
-                            end += 2; // skip escaped
-                            continue;
-                        }
-                        break;
-                    }
-                    end++;
-                }
-                if (end < rest.length) {
-                    tokens.push({ type: TokenType.String, value: rest.substring(0, end + 1) });
-                    i += end + 1;
-                    continue;
-                }
-            }
-
-            if (char === '"' && quoteChar !== '"') {
-                // Treat as string (MySQL style)
-                let end = 1;
-                while (end < rest.length) {
-                    if (rest[end] === '"') {
-                        if (end + 1 < rest.length && rest[end + 1] === '"') {
-                            end += 2;
-                            continue;
-                        }
-                        break;
-                    }
-                    end++;
-                }
-                if (end < rest.length) {
-                    tokens.push({ type: TokenType.String, value: rest.substring(0, end + 1) });
-                    i += end + 1;
-                    continue;
-                }
-            }
-
-            // 6. Comments (SQL --)
-            if (rest.startsWith('--')) {
-                const nl = rest.indexOf('\n');
-                const comment = nl === -1 ? rest : rest.substring(0, nl);
-                tokens.push({ type: TokenType.XmlComment, value: comment });
-                i += comment.length;
-                continue;
-            }
-
-            // 7. Entities
-            if (char === '&') {
-                if (rest.startsWith('&apos;')) {
-                    const end = rest.indexOf('&apos;', 6);
-                    if (end !== -1) {
-                        // &apos;...&apos; treated as String
-                        tokens.push({ type: TokenType.String, value: rest.substring(0, end + 6) });
-                        i += end + 6;
-                        continue;
-                    }
-                }
-                if (rest.startsWith('&quot;')) {
-                    const end = rest.indexOf('&quot;', 6);
-                    if (end !== -1) {
-                        // &quot;...&quot; treated as String (or ID?) - let's say String for XML context consistency
-                        tokens.push({ type: TokenType.String, value: rest.substring(0, end + 6) });
-                        i += end + 6;
-                        continue;
-                    }
-                }
-                const entityMatch = rest.match(entityRegex);
-                if (entityMatch) {
-                    tokens.push({ type: TokenType.Entity, value: entityMatch[0] });
-                    i += entityMatch[0].length;
-                    continue;
-                }
-            }
-
-            // 8. Operators
-            if (/^(\>=|\<=|\!=|\<\>)/.test(rest)) {
-                tokens.push({ type: TokenType.Operator, value: rest.substring(0, 2) });
-                i += 2;
-                continue;
-            }
-
-            // 9. Words (Keywords/Functions/Identifiers)
-            if (/[a-zA-Z0-9_]/.test(char)) {
-                const match = rest.match(wordRegex);
-                if (match) {
-                    const word = match[0];
-                    if (dialect.isKeyword(word)) {
-                        tokens.push({ type: TokenType.Keyword, value: word.toUpperCase() }); // Normalize case
-                    } else if (dialect.getFunctions().includes(word.toUpperCase())) {
-                        tokens.push({ type: TokenType.Function, value: word }); // Keep original case or normalize?
-                    } else {
-                        tokens.push({ type: TokenType.Identifier, value: word });
-                    }
-                    i += word.length;
-                    continue;
-                }
-            }
-
-            // 10. Symbols
-            tokens.push({ type: TokenType.Symbol, value: char });
-            i++;
-        }
-        return tokens;
     }
 
     private format(tokens: Token[], indentSize: number, dialect: Dialect): string {
@@ -350,15 +118,21 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                     break;
 
                 case TokenType.XmlTag:
-                    // 进入/退出 XML 标签时重置 SQL 子句深度
-                    clauseDepth = 0;
-                    // extraIndent = 0; // 已移除以修复子查询缩进
-                    // clauseStack.length = 0; // 已移除以修复子查询缩进
-
-
                     const normTag = this.normalizeTag(token.value);
                     const isClosing = normTag.startsWith('</');
                     const isSelfClosing = normTag.endsWith('/>');
+
+                    // SQL 语句标签（select/insert/update/delete）进入/退出时重置 SQL 子句状态，
+                    // 确保每个 SQL 块互不影响；其他标签（if/foreach/choose 等）继承当前缩进上下文。
+                    const isSqlStatementTag = /<\/?(select|insert|update|delete)\b/i.test(normTag);
+                    if (isSqlStatementTag) {
+                        clauseDepth = 0;
+                        extraIndent = 0;
+                        parenStack.length = 0;
+                        clauseStack.length = 0;
+                        parenDepth = 0;
+                        subqueryDepth = 0;
+                    }
 
                     if (isClosing) {
                         xmlDepth = Math.max(0, xmlDepth - 1);
@@ -506,12 +280,9 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                 case TokenType.Symbol:
                     if (token.value === ',') {
                         append(token.value);
-                        if (parenDepth > 0 && clauseStack.length === 0 /* 弱检查是否在简单括号内 */) {
-                            // 在简单括号内，也许只是空格
-                            // 但我们下面的括号处理逻辑会为子查询推入堆栈。
-                            // 如果我们在这里，parenDepth > 0。
-                            // 如果是子查询，我们可能会在子句逻辑或换行中处理逗号。
-                            // 对于简单的 (a, b, c)，空格很好。
+                        // 子查询括号内或顶层：逗号换行；函数/普通括号内：逗号后加空格
+                        const inSimpleParens = parenDepth > 0 && (parenStack.length === 0 || !parenStack[parenStack.length - 1]);
+                        if (inSimpleParens) {
                             spaceRequested = true;
                         } else {
                             newlineRequested = true;
@@ -568,6 +339,10 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                             newlineRequested = true;
                         } else {
                             parenStack.push(false);
+                            // 非子查询括号：为内部内容增加一级缩进（如 AND (cond1 OR cond2)）
+                            clauseStack.push(clauseDepth);
+                            extraIndent += (clauseDepth + 1);
+                            clauseDepth = 0;
                             append(token.value);
                         }
                         parenDepth++;
@@ -585,6 +360,10 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                             newlineRequested = true;
                             append(token.value);
                         } else {
+                            // 恢复非子查询括号前的缩进
+                            const savedClauseDepth = clauseStack.pop() || 0;
+                            extraIndent -= (savedClauseDepth + 1);
+                            clauseDepth = savedClauseDepth;
                             append(token.value);
                         }
                     } else {

@@ -5,7 +5,6 @@ export class OracleAdapter implements IDbAdapter {
     private pool: any;
     private oracledb: any = null;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
     private currentUser: string = '';
 
     private async loadOracle(): Promise<any> {
@@ -31,7 +30,7 @@ export class OracleAdapter implements IDbAdapter {
         const conn = await this.pool.getConnection();
         const r = await conn.execute('SELECT USER FROM DUAL');
         this.currentUser = (r.rows && r.rows[0]) ? r.rows[0][0] : '';
-        conn.close();
+        await conn.close();
     }
 
     async disconnect(): Promise<void> {
@@ -40,7 +39,6 @@ export class OracleAdapter implements IDbAdapter {
             this.pool = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
     }
 
     async getTableNames(): Promise<string[]> {
@@ -61,7 +59,7 @@ export class OracleAdapter implements IDbAdapter {
             }
             return names;
         } finally {
-            conn.close();
+            await conn.close();
         }
     }
 
@@ -71,7 +69,6 @@ export class OracleAdapter implements IDbAdapter {
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.pool) return [];
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
         const conn = await this.pool.getConnection();
         try {
             const r = await conn.execute(
@@ -98,10 +95,9 @@ export class OracleAdapter implements IDbAdapter {
                 Extra: row[5] || '',
                 Comment: row[6] || undefined
             }));
-            this.schemaCache.set(tableName, columns);
             return columns;
         } finally {
-            conn.close();
+            await conn.close();
         }
     }
 

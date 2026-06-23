@@ -74,7 +74,7 @@ export function getValidationDebounceMs(): number {
 // ---------- 格式化 ----------
 
 export function getFormattingIndentSize(): number {
-    return getConfig().get<number>('formatting.indentSize', 2);
+    return getConfig().get<number>('formatting.indentSize', 4);
 }
 
 // ---------- 查询结果（日期时间格式） ----------

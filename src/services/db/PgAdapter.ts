@@ -5,7 +5,6 @@ import { IDbAdapter } from './IDbAdapter';
 export class PgAdapter implements IDbAdapter {
     private pool: Pool | undefined;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
     private schemaName = 'public';
 
     async connect(config: ConnectionConfig): Promise<void> {
@@ -27,7 +26,6 @@ export class PgAdapter implements IDbAdapter {
             this.pool = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
     }
 
     async getTableNames(): Promise<string[]> {
@@ -61,7 +59,6 @@ export class PgAdapter implements IDbAdapter {
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.pool) return [];
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
         const client = await this.pool.connect();
         try {
             const r = await client.query(
@@ -88,7 +85,6 @@ export class PgAdapter implements IDbAdapter {
                 Extra: row.Extra || '',
                 Comment: row.Comment || undefined
             }));
-            this.schemaCache.set(tableName, columns);
             return columns;
         } catch {
             return [];

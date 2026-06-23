@@ -6,7 +6,6 @@ export class SqlServerAdapter implements IDbAdapter {
     private pool: any;
     private mssql: any;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
 
     private async loadMssql(): Promise<any> {
         if (this.mssql) return this.mssql;
@@ -40,7 +39,6 @@ export class SqlServerAdapter implements IDbAdapter {
             this.pool = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
     }
 
     async getTableNames(): Promise<string[]> {
@@ -66,7 +64,6 @@ export class SqlServerAdapter implements IDbAdapter {
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.pool) return [];
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
         const result = await this.pool.request()
             .input('tableName', tableName)
             .query(`
@@ -102,7 +99,6 @@ export class SqlServerAdapter implements IDbAdapter {
             Extra: row.Extra || '',
             Comment: row.Comment || undefined
         }));
-        this.schemaCache.set(tableName, columns);
         return columns;
     }
 

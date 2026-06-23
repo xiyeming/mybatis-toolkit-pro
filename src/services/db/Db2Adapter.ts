@@ -6,7 +6,6 @@ export class Db2Adapter implements IDbAdapter {
     private conn: any;
     private ibmdb: any;
     private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
 
     private async loadIbmDb(): Promise<any> {
         if (this.ibmdb) return this.ibmdb;
@@ -33,7 +32,6 @@ export class Db2Adapter implements IDbAdapter {
             this.conn = undefined;
         }
         this.tableCache.clear();
-        this.schemaCache.clear();
     }
 
     async getTableNames(): Promise<string[]> {
@@ -50,12 +48,11 @@ export class Db2Adapter implements IDbAdapter {
     }
 
     getTableComment(_tableName: string): string | undefined {
-        return '';
+        return undefined;
     }
 
     async getTableSchema(tableName: string): Promise<ColumnInfo[]> {
         if (!this.conn) return [];
-        if (this.schemaCache.has(tableName)) return this.schemaCache.get(tableName)!;
         const rows = this.conn.querySync(
             `SELECT COLNAME AS "Field",
                     TYPENAME AS "Type",
@@ -78,7 +75,6 @@ export class Db2Adapter implements IDbAdapter {
             Extra: row.Extra || '',
             Comment: row.Comment || undefined
         }));
-        this.schemaCache.set(tableName, columns);
         return columns;
     }
 
