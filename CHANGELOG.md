@@ -6,6 +6,16 @@
 
 ---
 
+## [1.6.4] - 2026-06-23
+
+### 新增
+
+- **代码生成 Service/ServiceImpl**：生成代码时新增 `Service` 接口和 `ServiceImpl` 实现类，输出到 `{basePackage}.service` 和 `{basePackage}.service.impl`。
+  - MyBatis-Plus 风格：`Service` 继承 `IService<Entity>`，`ServiceImpl` 继承 `ServiceImpl<Mapper, Entity>`
+  - MyBatis 风格：`Service` 接口含 CRUD 方法，`ServiceImpl` 注入 Mapper 并实现
+
+---
+
 ## [1.6.3] - 2026-06-23
 
 ### 优化
