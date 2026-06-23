@@ -31,7 +31,6 @@ export class ConnectionFormPanel {
         panel.onDidDispose(() => {
             if (ConnectionFormPanel.currentPanel === instance) {
                 ConnectionFormPanel.currentPanel = undefined;
-                outputChannel.dispose();
                 resolve(undefined);
             }
         });
@@ -324,6 +323,7 @@ export class ConnectionFormPanel {
         const host = (payload?.host || '').trim();
         const database = (payload?.database || '').trim();
         if (!host || !database) {
+            this.outputChannel.appendLine('[连接表单] 测试连接失败: 请填写必填字段（主机、数据库名）');
             this.panel?.webview.postMessage({ type: 'testResult', success: false, message: '请填写必填字段（主机、数据库名）' });
             return;
         }
@@ -339,22 +339,29 @@ export class ConnectionFormPanel {
                 database,
                 driverPath: payload.driverPath || undefined
             };
-            this.outputChannel.appendLine(`[连接表单] 测试连接: 类型=${config.type}, 主机=${config.host}, 端口=${config.port}, 数据库=${config.database}, 用户=${config.user}`);
+            this.outputChannel.appendLine(`[连接表单] 测试连接开始: 类型=${config.type}, 主机=${config.host}:${config.port}, 数据库=${config.database}, 用户=${config.user}, 驱动=${config.driverPath || '默认'}`);
             const result = await this.dbService.testConnection(config);
-            this.outputChannel.appendLine(`[连接表单] 测试结果: 成功=${result.success}, 消息=${result.message}`);
-            this.panel?.webview.postMessage({ type: 'testResult', success: result.success, message: result.message });
+            this.outputChannel.appendLine(`[连接表单] 测试连接结果: 成功=${result.success}, 消息=${result.message}`);
+            if (this.panel) {
+                this.panel.webview.postMessage({ type: 'testResult', success: result.success, message: result.message });
+            }
         } catch (error: any) {
             const msg = error.message || String(error);
-            this.outputChannel.appendLine(`[连接表单] 测试异常: ${msg}`);
-            this.panel?.webview.postMessage({ type: 'testResult', success: false, message: msg });
+            this.outputChannel.appendLine(`[连接表单] 测试连接异常: ${msg}`);
+            if (this.panel) {
+                this.panel.webview.postMessage({ type: 'testResult', success: false, message: msg });
+            }
         }
     }
 
     private handleCancel(): void {
+        this.outputChannel.appendLine('[连接表单] 取消操作，关闭弹窗');
         if (this.resolvePromise) {
             this.resolvePromise(undefined);
         }
-        this.panel?.dispose();
+        if (this.panel) {
+            this.panel.dispose();
+        }
     }
 }
 

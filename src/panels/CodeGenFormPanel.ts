@@ -1,29 +1,27 @@
 import * as vscode from 'vscode';
-import { CodeGenStyle } from '../services/CodeGenerationService';
+import { CodeGenerationService, CodeGenStyle } from '../services/CodeGenerationService';
 
 export class CodeGenFormPanel {
     public static viewType = 'mybatisToolkit.codeGenForm';
     private static currentPanel: CodeGenFormPanel | undefined;
     private panel: vscode.WebviewPanel | undefined;
-    private resolvePromise: ((result: {
-        basePackage: string;
-        style: CodeGenStyle;
-        workspaceRoot: string;
-    } | undefined) => void) | undefined;
+    private resolvePromise: ((result: { basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined) => void) | undefined;
 
-    public static createOrShow(tableName: string, existing?: {
+    public static createOrShow(tableName: string, codeGenService: CodeGenerationService, outputChannel: vscode.OutputChannel, existing?: {
         basePackage: string;
         style: CodeGenStyle;
         workspaceRoot: string;
     }): Promise<{ basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined> {
         const promise = new Promise<{ basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined>((resolve) => {
-            CodeGenFormPanel.currentPanel = CodeGenFormPanel.createNew(tableName, existing, resolve);
+            CodeGenFormPanel.currentPanel = CodeGenFormPanel.createNew(tableName, codeGenService, outputChannel, existing, resolve);
         });
         return promise;
     }
 
     private static createNew(
         tableName: string,
+        codeGenService: CodeGenerationService,
+        outputChannel: vscode.OutputChannel,
         existing: { basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined,
         resolve: (result: { basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined) => void
     ): CodeGenFormPanel {
@@ -33,7 +31,7 @@ export class CodeGenFormPanel {
             vscode.ViewColumn.Beside,
             { enableScripts: true, retainContextWhenHidden: true }
         );
-        const instance = new CodeGenFormPanel(panel, resolve);
+        const instance = new CodeGenFormPanel(panel, codeGenService, outputChannel, tableName, resolve);
         panel.onDidDispose(() => {
             if (CodeGenFormPanel.currentPanel === instance) {
                 CodeGenFormPanel.currentPanel = undefined;
@@ -58,7 +56,7 @@ export class CodeGenFormPanel {
         return instance;
     }
 
-    private constructor(panel: vscode.WebviewPanel, resolve: (result: { basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined) => void) {
+    private constructor(panel: vscode.WebviewPanel, private codeGenService: CodeGenerationService, private outputChannel: vscode.OutputChannel, private tableName: string, resolve: (result: { basePackage: string; style: CodeGenStyle; workspaceRoot: string } | undefined) => void) {
         this.panel = panel;
         this.resolvePromise = resolve;
     }
@@ -180,8 +178,9 @@ export class CodeGenFormPanel {
             </div>
             <div class="actions">
                 <button type="button" class="btn-secondary" id="btnCancel">取消</button>
-                <button type="submit" class="btn-primary">生成</button>
+                <button type="submit" class="btn-primary" id="btnSubmit">生成</button>
             </div>
+            <div id="statusMsg" style="margin-top:10px;padding:8px;border-radius:4px;display:none;font-size:12px;"></div>
         </form>
         <div class="preview" id="preview" style="display:none;">
             <div class="preview-title">生成预览</div>
@@ -224,6 +223,8 @@ export class CodeGenFormPanel {
         document.getElementById('btnCancel').addEventListener('click', () => {
             vscode.postMessage({ type: 'cancel' });
         });
+        const btnSubmit = document.getElementById('btnSubmit');
+        const statusMsg = document.getElementById('statusMsg');
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const fd = new FormData(form);
@@ -233,10 +234,33 @@ export class CodeGenFormPanel {
                 workspaceRoot: (fd.get('workspaceRoot') || '').trim()
             };
             if (!payload.basePackage || !payload.workspaceRoot) {
-                vscode.postMessage({ type: 'formError', message: '请填写基础包名并选择生成目录' });
+                statusMsg.style.display = 'block';
+                statusMsg.style.background = 'rgba(244, 135, 113, 0.2)';
+                statusMsg.style.color = '#f48771';
+                statusMsg.textContent = '请填写基础包名并输入生成目录';
                 return;
             }
+            statusMsg.style.display = 'none';
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = '生成中...';
             vscode.postMessage({ type: 'submit', payload });
+        });
+        window.addEventListener('message', (event) => {
+            const msg = event.data;
+            if (msg.type === 'loading') {
+                btnSubmit.disabled = msg.loading;
+                btnSubmit.textContent = msg.loading ? '生成中...' : '生成';
+            } else if (msg.type === 'formError') {
+                statusMsg.style.display = 'block';
+                statusMsg.style.background = 'rgba(244, 135, 113, 0.2)';
+                statusMsg.style.color = '#f48771';
+                statusMsg.textContent = msg.message;
+            } else if (msg.type === 'success') {
+                statusMsg.style.display = 'block';
+                statusMsg.style.background = 'rgba(76, 175, 80, 0.2)';
+                statusMsg.style.color = '#4caf50';
+                statusMsg.textContent = msg.message;
+            }
         });
 
         function escapeHtml(s) {
@@ -254,21 +278,38 @@ export class CodeGenFormPanel {
             this.panel?.webview.postMessage({ type: 'formError', message: '请填写基础包名并输入生成目录' });
             return;
         }
-        if (this.resolvePromise) {
-            this.resolvePromise({
-                basePackage,
-                style: payload.style,
-                workspaceRoot
-            });
+        this.outputChannel.appendLine(`[代码生成弹窗] 开始生成: 表名=${this.tableName}, 包=${basePackage}, 风格=${payload.style}, 目录=${workspaceRoot}`);
+        if (this.panel) {
+            this.panel.webview.postMessage({ type: 'loading', loading: true });
         }
-        this.panel?.dispose();
+        this.codeGenService.generateCode(this.tableName, basePackage, workspaceRoot, payload.style).then(() => {
+            this.outputChannel.appendLine(`[代码生成弹窗] 生成成功`);
+            if (this.panel) {
+                this.panel.webview.postMessage({ type: 'loading', loading: false });
+                this.panel.webview.postMessage({ type: 'success', message: '代码生成成功' });
+            }
+            if (this.resolvePromise) {
+                this.resolvePromise({ basePackage, style: payload.style, workspaceRoot });
+            }
+            this.panel?.dispose();
+        }).catch((error: any) => {
+            const msg = error.message || String(error);
+            this.outputChannel.appendLine(`[代码生成弹窗] 生成失败: ${msg}`);
+            if (this.panel) {
+                this.panel.webview.postMessage({ type: 'loading', loading: false });
+                this.panel.webview.postMessage({ type: 'formError', message: `生成失败: ${msg}` });
+            }
+        });
     }
 
     private handleCancel(): void {
+        this.outputChannel.appendLine('[代码生成弹窗] 取消操作，关闭弹窗');
         if (this.resolvePromise) {
             this.resolvePromise(undefined);
         }
-        this.panel?.dispose();
+        if (this.panel) {
+            this.panel.dispose();
+        }
     }
 }
 

@@ -327,11 +327,7 @@ export async function activate(context: vscode.ExtensionContext) {
             if (!item || !item.tableName) {
                 return;
             }
-            const result = await CodeGenFormPanel.createOrShow(item.tableName);
-            if (!result) return;
-
-            const { basePackage, style, workspaceRoot } = result;
-            await codeGenService.generateCode(item.tableName, basePackage, workspaceRoot, style);
+            await CodeGenFormPanel.createOrShow(item.tableName, codeGenService, codeGenOutputChannel);
         }),
         vscode.commands.registerCommand('mybatisToolkit.generateXmlForMethod', async (javaFileUriOrDoc: string | vscode.TextDocument, methodName: string, xmlFile: string) => {
             try {
