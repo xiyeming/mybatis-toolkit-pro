@@ -224,6 +224,7 @@ export class ConnectionFormPanel {
         </form>
     </div>
     <script>
+        const vscode = acquireVsCodeApi();
         const form = document.getElementById('connForm');
         const btnTest = document.getElementById('btnTest');
         const btnCancel = document.getElementById('btnCancel');

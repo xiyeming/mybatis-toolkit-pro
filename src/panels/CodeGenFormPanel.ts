@@ -188,6 +188,7 @@ export class CodeGenFormPanel {
         </div>
     </div>
     <script>
+        const vscode = acquireVsCodeApi();
         const form = document.getElementById('codeGenForm');
         const basePackageInput = document.getElementById('basePackage');
         const styleSelect = document.getElementById('style');
