@@ -43,6 +43,7 @@ module.exports = {
     },
     ignoreWarnings: [
         { module: /node_modules\/mysql2/ },
-        { module: /node_modules\/pg/ } // pg-native 可选，纯 JS 模式无需
+        { module: /node_modules\/pg/ }, // pg-native 可选，纯 JS 模式无需
+        { module: /DriverLoader/ } // 动态 import 驱动路径，webpack 无法静态分析
     ]
 };
