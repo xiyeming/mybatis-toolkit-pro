@@ -12,8 +12,14 @@ export function createDbAdapter(config: ConnectionConfig): IDbAdapter {
             return new OracleAdapter();
         case 'MySQL':
         case 'MariaDB':
-        default:
             return new MySQLAdapter();
+        case 'SQL Server':
+        case 'SQLite':
+        case 'DB2':
+        case 'H2':
+            throw new Error(`数据库类型 "${config.type}" 尚未支持连接与元数据查询。`);
+        default:
+            throw new Error(`未知的数据库类型: ${config.type}`);
     }
 }
 

@@ -36,9 +36,7 @@ export class OracleAdapter implements IDbAdapter {
 
     async disconnect(): Promise<void> {
         if (this.pool) {
-            try {
-                await this.pool.close(10);
-            } catch (_) {}
+            await this.pool.close(10);
             this.pool = undefined;
         }
         this.tableCache.clear();
@@ -102,8 +100,6 @@ export class OracleAdapter implements IDbAdapter {
             }));
             this.schemaCache.set(tableName, columns);
             return columns;
-        } catch {
-            return [];
         } finally {
             conn.close();
         }

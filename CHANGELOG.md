@@ -6,6 +6,37 @@
 
 ---
 
+## [1.1.5] - 2026-06-23
+
+### 修复
+
+- **资源释放**：`deactivate` 中现在正确释放数据库连接、索引器、SQL 验证器与文件监听器，避免扩展重载/卸载时资源泄漏。
+- **文件监听**：`ProjectIndexer` 维护 watcher 列表并提供 `dispose()`，重复激活不会累加监听器。
+- **未支持数据库类型**：`createDbAdapter` 对 SQL Server / SQLite / DB2 / H2 等未实现类型直接抛出明确错误，不再误用 MySQL 适配器执行。
+- **端口校验**：添加/编辑连接时校验端口为 1–65535 有效数字，避免 `NaN` 持久化到配置。
+- **同步 I/O 异步化**：「为方法生成 XML」命令使用 `fs.promises` 读写文件，避免阻塞扩展宿主。
+- **密码安全**：数据库密码迁移到 VS Code `SecretStorage`，不再明文写入 `settings.json`。
+- **Oracle 适配器错误处理**：移除 `disconnect()` 与 `getTableSchema()` 中静默吞错的空 `catch`。
+- **多行 XML 标签**：`PropertyDefinitionProvider` 支持跨行标签中 `property` 属性的跳转到定义。
+- **SQL 生成参数回退**：`MethodSqlGenerator` 显式处理参数不足场景，避免生成 `#{undefined}`。
+- **跨行 Mapper 标签**：`MyBatisCodeLensProvider` 支持 `<select|insert|update|delete>` 标签跨行时的双向跳转。
+- **转义引号**：`SqlHighlightingProvider` 正确识别反斜杠转义的单/双引号。
+- **XML 属性解析**：`SqlValidationProvider.getAttribute()` 正确解析含转义实体与不同引号类型的属性值。
+- **类型安全**：`DatabaseTreeDataProvider.ColumnItem` 使用 `ColumnInfo` 替代 `any`。
+
+### 优化
+
+- **索引并发与大文件保护**：`ProjectIndexer` 使用受控并发 worker 池解析文件，并跳过超过 500KB 的超大文件；`ProjectIndexer` 单例支持 `destroyInstance()` 重置。
+- **SQL 验证大文件保护**：超过 200KB 的 XML 文件跳过实时诊断，降低大文件编辑时的 CPU 占用。
+- **SQL 格式化**：限制 200KB 文件大小；优化 XML 标签正则，降低回溯风险；使用 `trimEnd()` 替代废弃的 `trimRight()`。
+- **语义高亮**：限制 200KB 文件大小；处理转义引号，避免无界扫描。
+- **`showFullStructure` 并行化**：批量并行获取表结构（并发 10），100+ 张表展示更快。
+- **减少重复解析**：CodeLens Provider 优先使用索引器缓存的 `JavaInterface`，不再每次都重新解析当前 Java 文档。
+- **数据库缓存限制**：`DatabaseService` 表名/列信息缓存改用 `LruCache`（各 2000 条），避免表极多时内存持续增长。
+- **单元格日期解析优化**：查询结果面板仅对看起来像日期的字符串执行日期正则与 `Date` 解析，减少大量普通字符串的无效计算。
+
+---
+
 ## [1.1.4] - 2026-03-15
 
 ### 修复

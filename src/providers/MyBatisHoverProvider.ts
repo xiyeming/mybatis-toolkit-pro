@@ -70,6 +70,7 @@ export class MyBatisHoverProvider implements vscode.HoverProvider {
 
         let rootType = methodInfo.params.get(rootParam);
         let description = methodInfo.paramDocs.get(rootParam);
+        let resolvedRootParam = rootParam;
         let resolvedFieldDoc: string | undefined = undefined;
         let resolvedFieldType: string | undefined = undefined;
 
@@ -79,15 +80,15 @@ export class MyBatisHoverProvider implements vscode.HoverProvider {
             if (entry) {
                 const [singleName, singleType] = entry;
                 rootType = singleType;
-                rootParam = singleName;
+                resolvedRootParam = singleName;
             }
         }
 
-        if (rootType && (parts.length > 1 || (parts.length === 1 && parts[0] !== rootParam))) {
+        if (rootType && (parts.length > 1 || (parts.length === 1 && parts[0] !== resolvedRootParam))) {
             let currentTypeSimple = rootType;
             let currentTypeFull = this.resolveFullName(javaInterface, currentTypeSimple);
 
-            const startIndex = (parts[0] === rootParam) ? 1 : 0;
+            const startIndex = (parts[0] === resolvedRootParam) ? 1 : 0;
 
             for (let i = startIndex; i < parts.length; i++) {
                 const propName = parts[i];
@@ -110,6 +111,7 @@ export class MyBatisHoverProvider implements vscode.HoverProvider {
             }
         }
 
+        // 保持显示用户原始表达式，类型解析内部使用推断后的根参数
         const targetProp = parts.join('.');
         md.appendMarkdown(`**MyBatis Property**: \`${targetProp}\`\n\n`);
 

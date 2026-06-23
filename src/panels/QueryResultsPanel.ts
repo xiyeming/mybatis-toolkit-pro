@@ -86,7 +86,10 @@ export class QueryResultsPanel {
     }
 
     private buildHtml(sqlPreview?: string): string {
-        const result = this.data!;
+        if (!this.data) {
+            return this.getEmptyHtml();
+        }
+        const result = this.data;
         const isError = result.message && result.columns.length === 0 && result.rows.length === 0 && result.affectedRows == null;
         if (isError) return this.getErrorHtml(result.message!);
 
@@ -336,8 +339,11 @@ function formatCellDisplay(cell: any, formats?: QueryResultDateFormats): { displ
     const numMatch = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.exec(s);
     if (numMatch) return { display: s, cssClass: 'cell-num' };
     const f = formats || DEFAULT_FORMATS;
-    const dateFormatted = tryFormatDate(s, f);
-    if (dateFormatted) return { display: dateFormatted, cssClass: 'cell-date' };
+    // 只有看起来像日期/时间的字符串才尝试日期解析，避免大量普通字符串触发昂贵正则与 Date 解析
+    if (s.length >= 8 && /^\d/.test(s)) {
+        const dateFormatted = tryFormatDate(s, f);
+        if (dateFormatted) return { display: dateFormatted, cssClass: 'cell-date' };
+    }
     return { display: s, cssClass: '' };
 }
 

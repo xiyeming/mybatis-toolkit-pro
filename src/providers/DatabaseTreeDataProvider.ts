@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { DatabaseService } from '../services/DatabaseService';
-import { ConnectionConfig } from '../types';
+import { ConnectionConfig, ColumnInfo } from '../types';
 
 export class DatabaseTreeDataProvider implements vscode.TreeDataProvider<DatabaseTreeItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<DatabaseTreeItem | undefined | null | void> = new vscode.EventEmitter<DatabaseTreeItem | undefined | null | void>();
@@ -104,7 +104,7 @@ export class TableItem extends DatabaseTreeItem {
 }
 
 export class ColumnItem extends DatabaseTreeItem {
-    constructor(public readonly column: any) {
+    constructor(public readonly column: ColumnInfo) {
         // 字段: 类型
         super(`${column.Field}: ${column.Type}`, vscode.TreeItemCollapsibleState.None);
         this.contextValue = 'column';

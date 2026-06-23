@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { DatabaseService } from '../services/DatabaseService';
 import { ProjectIndexer } from '../services/ProjectIndexer';
-import { SQL_KEYWORDS, SQL_FUNCTIONS } from '../constants';
+import { SQL_KEYWORDS, SQL_FUNCTIONS, MAX_VALIDATION_FILE_SIZE_BYTES } from '../constants';
 import { isValidationEnabled, getValidationDebounceMs } from '../config';
 
 export class SqlValidationProvider implements vscode.Disposable {
@@ -47,6 +47,13 @@ export class SqlValidationProvider implements vscode.Disposable {
         if (document.languageId !== 'xml') return;
 
         if (!isValidationEnabled()) {
+            this.diagnosticCollection.clear();
+            return;
+        }
+
+        // 超大 XML 跳过实时诊断，避免阻塞扩展宿主
+        const text = document.getText();
+        if (text.length > MAX_VALIDATION_FILE_SIZE_BYTES) {
             this.diagnosticCollection.clear();
             return;
         }
@@ -599,8 +606,20 @@ export class SqlValidationProvider implements vscode.Disposable {
     }
 
     private getAttribute(attributes: string, name: string): string | undefined {
-        const match = new RegExp(`${name}=["']([^"']+)["']`).exec(attributes);
-        return match ? match[1] : undefined;
+        const doubleQuote = new RegExp(`${name}="([^"]*)"`).exec(attributes);
+        if (doubleQuote) { return this.decodeXmlEntities(doubleQuote[1]); }
+        const singleQuote = new RegExp(`${name}='([^']*)'`).exec(attributes);
+        if (singleQuote) { return this.decodeXmlEntities(singleQuote[1]); }
+        return undefined;
+    }
+
+    private decodeXmlEntities(value: string): string {
+        return value
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
     }
 
     private validateUnionConsistency(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {

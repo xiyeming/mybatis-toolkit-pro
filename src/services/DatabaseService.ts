@@ -2,15 +2,18 @@ import * as vscode from 'vscode';
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../types';
 import { createDbAdapter, IDbAdapter } from './db';
 import { getConnections as getConfigConnections, getLegacyDatabaseConfig } from '../config';
+import { LruCache } from '../utils/LruCache';
+import { DB_TABLE_CACHE_SIZE, DB_SCHEMA_CACHE_SIZE } from '../constants';
 
 export class DatabaseService {
     private static instance: DatabaseService;
     private connections: ConnectionConfig[] = [];
     private activeConnectionId: string | undefined;
     private activeAdapter: IDbAdapter | undefined;
+    private secretStorage: vscode.SecretStorage | undefined;
 
-    private tableCache: Map<string, string> = new Map();
-    private schemaCache: Map<string, ColumnInfo[]> = new Map();
+    private tableCache: LruCache<string, string> = new LruCache(DB_TABLE_CACHE_SIZE);
+    private schemaCache: LruCache<string, ColumnInfo[]> = new LruCache(DB_SCHEMA_CACHE_SIZE);
 
     private outputChannel: vscode.OutputChannel;
     private _onDidReady = new vscode.EventEmitter<void>();
@@ -20,7 +23,7 @@ export class DatabaseService {
 
     private constructor() {
         this.outputChannel = vscode.window.createOutputChannel("MyBatis Database");
-        this.loadConnections();
+        // 连接配置在 init(secretStorage) 中异步加载，避免在扩展宿主中执行同步 I/O
     }
 
     public static getInstance(): DatabaseService {
@@ -30,12 +33,20 @@ export class DatabaseService {
         return DatabaseService.instance;
     }
 
-    private loadConnections() {
-        this.connections = getConfigConnections();
-        if (this.connections.length === 0) {
+    /**
+     * 初始化数据库服务。必须在 getInstance 之后调用，以注入 SecretStorage 并加载连接。
+     */
+    public async init(secretStorage: vscode.SecretStorage): Promise<void> {
+        this.secretStorage = secretStorage;
+        await this.loadConnections();
+    }
+
+    private async loadConnections() {
+        const rawConnections = getConfigConnections();
+        if (rawConnections.length === 0) {
             const legacy = getLegacyDatabaseConfig();
             if (legacy.host && legacy.database) {
-                this.addConnection({
+                await this.addConnection({
                     id: 'default',
                     name: 'Default',
                     type: 'MySQL',
@@ -46,7 +57,21 @@ export class DatabaseService {
                     database: legacy.database
                 });
             }
+            return;
         }
+
+        this.connections = rawConnections.map(c => ({ ...c, password: c.password ?? '' }));
+        // 从 SecretStorage 读取密码；若配置中仍有旧明文密码则迁移到 secrets 后从 settings 清除
+        for (const c of this.connections) {
+            const stored = await this.getPassword(c.id);
+            if (stored !== undefined) {
+                c.password = stored;
+            } else if (c.password) {
+                await this.storePassword(c.id, c.password);
+            }
+        }
+        // 立即保存一次，确保 settings.json 中不再包含明文密码
+        await this.saveConnections();
     }
 
     public getConnections(): ConnectionConfig[] {
@@ -63,6 +88,7 @@ export class DatabaseService {
         if (this.activeConnectionId === id) {
             await this.disconnect();
         }
+        await this.deletePassword(id);
         await this.saveConnections();
     }
 
@@ -76,8 +102,40 @@ export class DatabaseService {
 
     private async saveConnections() {
         const config = vscode.workspace.getConfiguration('mybatisToolkit');
-        await config.update('connections', this.connections, vscode.ConfigurationTarget.Global);
+        // settings.json 中仅保存不含密码的连接元数据
+        const sanitized = this.connections.map(c => {
+            const { password, ...rest } = c;
+            return rest;
+        });
+        await config.update('connections', sanitized, vscode.ConfigurationTarget.Global);
+
+        if (this.secretStorage) {
+            for (const c of this.connections) {
+                if (c.password !== undefined) {
+                    await this.storePassword(c.id, c.password);
+                }
+            }
+        }
         this._onDidConfigChange.fire();
+    }
+
+    private getPasswordKey(id: string): string {
+        return `mybatisToolkit.connection.password.${id}`;
+    }
+
+    private async storePassword(id: string, password: string): Promise<void> {
+        if (!this.secretStorage) { return; }
+        await this.secretStorage.store(this.getPasswordKey(id), password);
+    }
+
+    private async getPassword(id: string): Promise<string | undefined> {
+        if (!this.secretStorage) { return undefined; }
+        return this.secretStorage.get(this.getPasswordKey(id));
+    }
+
+    private async deletePassword(id: string): Promise<void> {
+        if (!this.secretStorage) { return; }
+        await this.secretStorage.delete(this.getPasswordKey(id));
     }
 
     public async connect(id: string) {
@@ -126,12 +184,6 @@ export class DatabaseService {
         return config?.type;
     }
 
-    public async init() {
-        if (this.connections.length > 0) {
-            // 可选：自动连接上次使用的连接
-        }
-    }
-
     public async refreshTables() {
         if (!this.activeAdapter) return;
         try {
@@ -142,7 +194,7 @@ export class DatabaseService {
                 const comment = this.activeAdapter.getTableComment(name) || '';
                 this.tableCache.set(name, comment);
             }
-            this.outputChannel.appendLine(`已刷新 ${this.tableCache.size} 张表。`);
+            this.outputChannel.appendLine(`已刷新 ${this.tableCache.size()} 张表。`);
         } catch (error: any) {
             this.outputChannel.appendLine(`获取表失败: ${error.message}`);
         }
@@ -190,7 +242,7 @@ export class DatabaseService {
     }
 
     public isReady(): boolean {
-        return !!this.activeAdapter && this.tableCache.size > 0;
+        return !!this.activeAdapter && this.tableCache.size() > 0;
     }
 
     /** 执行 SQL（用于查询窗口），最多返回 maxRows 行以保证性能 */
@@ -199,5 +251,14 @@ export class DatabaseService {
             return { columns: [], rows: [], totalFetched: 0, message: '请先选择并连接数据库' };
         }
         return this.activeAdapter.executeSql(sql, maxRows);
+    }
+
+    /** 释放数据库连接与事件发射器 */
+    public async dispose(): Promise<void> {
+        await this.disconnect();
+        this.connections = [];
+        this._onDidReady.dispose();
+        this._onDidConfigChange.dispose();
+        this.outputChannel.dispose();
     }
 }

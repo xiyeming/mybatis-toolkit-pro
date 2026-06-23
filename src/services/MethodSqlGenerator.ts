@@ -120,23 +120,28 @@ export class MethodSqlGenerator {
             // 检查 Like, In, Between 后缀
             if (field.endsWith('_like')) {
                 const realField = field.replace('_like', '');
-                const pName = params[paramIndex]?.name || realField;
+                const pName = this.getParamName(params, paramIndex, realField);
                 conditions.push(`${realField} like concat('%', #{${pName}}, '%')`);
                 paramIndex++;
             } else if (field.endsWith('_in')) {
                 const realField = field.replace('_in', '');
-                const pName = params[paramIndex]?.name || 'list';
+                const pName = this.getParamName(params, paramIndex, 'list');
                 conditions.push(`${realField} in \n    <foreach item="item" collection="${pName}" open="(" separator="," close=")">#{item}</foreach>`);
                 paramIndex++;
             } else {
                 // 等于
-                const pName = params[paramIndex]?.name || this.lowerFirst(part);
+                const pName = this.getParamName(params, paramIndex, this.lowerFirst(part));
                 conditions.push(`${field} = #{${pName}}`);
                 paramIndex++;
             }
         }
 
         return conditions.join(' ');
+    }
+
+    /** 按索引获取参数名；参数不足时使用 fallback，避免生成 #{undefined} */
+    private getParamName(params: { name: string; type: string }[], index: number, fallback: string): string {
+        return params[index]?.name || fallback;
     }
 
     private camelToSnake(str: string): string {
