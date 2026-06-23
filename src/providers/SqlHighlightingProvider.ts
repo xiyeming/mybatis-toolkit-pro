@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { DatabaseService } from '../services/DatabaseService';
 import { getDefaultDatabaseType } from '../config';
+import { MAX_HIGHLIGHT_FILE_SIZE_BYTES } from '../constants';
 import { DialectFactory } from '../services/dialects/DialectFactory';
 import { Dialect } from '../services/dialects/Dialect';
 
@@ -43,6 +44,12 @@ export class SqlHighlightingProvider implements vscode.DocumentSemanticTokensPro
     async provideDocumentSemanticTokens(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.SemanticTokens> {
         const builder = new vscode.SemanticTokensBuilder(SQL_SEMANTIC_TOKEN_LEGEND);
         const text = document.getText();
+
+        // 超大 XML 跳过语义高亮，避免长时间 tokenize 阻塞扩展宿主
+        if (text.length > MAX_HIGHLIGHT_FILE_SIZE_BYTES) {
+            return builder.build();
+        }
+
         const dialect = this.getDialect();
 
         const tokens = this.tokenize(text, dialect);
@@ -211,6 +218,7 @@ export class SqlHighlightingProvider implements vscode.DocumentSemanticTokensPro
                 let end = 1;
                 while (end < rest.length) {
                     if (rest[end] === "'") {
+                        if (this.isEscapedQuote(rest, end)) { end++; continue; }
                         if (end + 1 < rest.length && rest[end + 1] === "'") { end += 2; continue; }
                         break;
                     }
@@ -226,6 +234,7 @@ export class SqlHighlightingProvider implements vscode.DocumentSemanticTokensPro
                 let end = 1;
                 while (end < rest.length) {
                     if (rest[end] === '"') {
+                        if (this.isEscapedQuote(rest, end)) { end++; continue; }
                         if (end + 1 < rest.length && rest[end + 1] === '"') { end += 2; continue; }
                         break;
                     }
@@ -290,6 +299,16 @@ export class SqlHighlightingProvider implements vscode.DocumentSemanticTokensPro
             i++;
         }
         return tokens;
+    }
+
+    private isEscapedQuote(text: string, pos: number): boolean {
+        let backslashCount = 0;
+        let p = pos - 1;
+        while (p >= 0 && text[p] === '\\') {
+            backslashCount++;
+            p--;
+        }
+        return backslashCount % 2 === 1;
     }
 
     private isTableContext(tokens: Token[]): boolean {

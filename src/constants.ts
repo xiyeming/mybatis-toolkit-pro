@@ -5,6 +5,17 @@ export const INDEX_DEBOUNCE_MS = 300;
 /** 文档变更后延迟执行 SQL 诊断（毫秒） */
 export const VALIDATION_DEBOUNCE_MS = 400;
 
+/** 索引阶段跳过的最大文件大小（字节），超大文件不参与 Mapper/DTO 解析以减少启动负担 */
+export const MAX_INDEX_FILE_SIZE_BYTES = 500 * 1024;
+/** 验证阶段跳过的最大 XML 文件大小（字节），超大文件不做实时 SQL 诊断 */
+export const MAX_VALIDATION_FILE_SIZE_BYTES = 200 * 1024;
+/** 语义高亮处理的最大文件大小（字节），超大文件跳过以避免卡顿 */
+export const MAX_HIGHLIGHT_FILE_SIZE_BYTES = 200 * 1024;
+/** 数据库表名缓存最大条目数 */
+export const DB_TABLE_CACHE_SIZE = 2000;
+/** 数据库列信息缓存最大条目数 */
+export const DB_SCHEMA_CACHE_SIZE = 2000;
+
 /** 查询结果默认每页行数（前端分页） */
 export const QUERY_DEFAULT_PAGE_SIZE = 100;
 /** 单次 SQL 最多返回行数（服务端限制，保证性能） */

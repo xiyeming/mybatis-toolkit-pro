@@ -244,6 +244,11 @@ export class JavaAstUtils {
                     collected.push(lines[j]);
                     if (/\)\s*;?\s*$/.test(lines[j].trim())) break;
                 }
+                // 未找到闭合括号：跳过该签名，避免将文件剩余内容拼接成巨型字符串
+                if (j >= lines.length) {
+                    i = j;
+                    continue;
+                }
                 const fullSignature = collected.join(' ');
                 const paramsStr = this.extractParamsFromSignature(fullSignature);
                 if (paramsStr !== null) {

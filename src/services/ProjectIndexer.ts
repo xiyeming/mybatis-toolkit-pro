@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { JavaInterface, JavaClass, MapperXml, StatementInfo, ResultMapInfo } from '../types';
 import { JavaAstUtils } from '../utils/JavaAstUtils';
 import { getNavigationExclude, getIndexParseConcurrency, getIndexDebounceMs } from '../config';
+import { MAX_INDEX_FILE_SIZE_BYTES } from '../constants';
 
 export class ProjectIndexer {
     private static instance: ProjectIndexer;
@@ -19,6 +20,8 @@ export class ProjectIndexer {
 
     private pendingUpdateTimeout: ReturnType<typeof setTimeout> | undefined;
     private pendingFire = false;
+    private watchers: vscode.FileSystemWatcher[] = [];
+    private disposed = false;
 
     private constructor(outputChannel: vscode.OutputChannel) {
         this.outputChannel = outputChannel;
@@ -46,7 +49,41 @@ export class ProjectIndexer {
         return ProjectIndexer.instance;
     }
 
+    /**
+     * 销毁当前单例，清空缓存、定时器与文件监听。主要用于 deactivate 与测试。
+     */
+    public static destroyInstance(): void {
+        if (ProjectIndexer.instance) {
+            ProjectIndexer.instance.dispose();
+            ProjectIndexer.instance = undefined as any;
+        }
+    }
+
+    /**
+     * 释放所有资源：文件监听器、定时器、缓存、事件发射器。
+     */
+    public dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+
+        for (const watcher of this.watchers) {
+            watcher.dispose();
+        }
+        this.watchers = [];
+
+        if (this.pendingUpdateTimeout) {
+            clearTimeout(this.pendingUpdateTimeout);
+            this.pendingUpdateTimeout = undefined;
+        }
+
+        this.javaMap.clear();
+        this.dtoMap.clear();
+        this.xmlMap.clear();
+        this._onDidUpdateIndex.dispose();
+    }
+
     public async init() {
+        if (this.disposed) return;
         this.outputChannel.appendLine('[索引器] 开始全项目扫描...');
         const start = Date.now();
 
@@ -103,21 +140,56 @@ export class ProjectIndexer {
                 watcher.onDidChange(uri => this.handleFileChange(uri));
                 watcher.onDidCreate(uri => this.handleFileChange(uri));
                 watcher.onDidDelete(uri => this.handleFileDelete(uri));
+                this.watchers.push(watcher);
             }
         } else {
             const watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,xml}');
             watcher.onDidChange(uri => this.handleFileChange(uri));
             watcher.onDidCreate(uri => this.handleFileChange(uri));
             watcher.onDidDelete(uri => this.handleFileDelete(uri));
+            this.watchers.push(watcher);
         }
     }
 
-    /** 限制并发解析数量，避免大仓库下同时打开大量文档导致卡顿 */
-    private async parseFilesInBatches<T>(files: vscode.Uri[], parseOne: (uri: vscode.Uri) => Promise<T>): Promise<void> {
-        const concurrency = getIndexParseConcurrency();
-        for (let i = 0; i < files.length; i += concurrency) {
-            const chunk = files.slice(i, i + concurrency);
-            await Promise.all(chunk.map(file => parseOne(file)));
+    /** 限制并发解析数量，避免大仓库下同时打开大量文档导致卡顿；超过大小阈值的文件直接跳过。 */
+    private async parseFilesInBatches(files: vscode.Uri[], parseOne: (uri: vscode.Uri) => Promise<void>): Promise<void> {
+        const concurrency = Math.max(1, getIndexParseConcurrency());
+        let skipped = 0;
+        let index = 0;
+        const workers: Promise<void>[] = [];
+
+        const worker = async () => {
+            while (index < files.length) {
+                const uri = files[index++];
+                if (await this.isOversized(uri)) {
+                    skipped++;
+                    this.outputChannel.appendLine(`[索引器] 跳过超大文件: ${uri.fsPath}`);
+                    continue;
+                }
+                try {
+                    await parseOne(uri);
+                } catch (e) {
+                    this.outputChannel.appendLine(`[索引器] 解析文件失败 ${uri.fsPath}: ${e}`);
+                }
+            }
+        };
+
+        for (let w = 0; w < concurrency; w++) {
+            workers.push(worker());
+        }
+        await Promise.all(workers);
+
+        if (skipped > 0) {
+            this.outputChannel.appendLine(`[索引器] 共跳过 ${skipped} 个超大文件（>${MAX_INDEX_FILE_SIZE_BYTES / 1024}KB）。`);
+        }
+    }
+
+    private async isOversized(uri: vscode.Uri): Promise<boolean> {
+        try {
+            const stat = await vscode.workspace.fs.stat(uri);
+            return stat.size > MAX_INDEX_FILE_SIZE_BYTES;
+        } catch {
+            return false;
         }
     }
 

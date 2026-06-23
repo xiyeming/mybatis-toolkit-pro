@@ -14,27 +14,23 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
 
         const word = document.getText(range);
         const text = document.getText();
+        const docOffset = document.offsetAt(position);
 
-        // 仅在 property="..." 内部触发
-        const line = document.lineAt(position.line).text;
-        const widthBefore = position.character;
-        const prefix = line.substring(0, widthBefore);
-        // 基本检查我们是否在 property="..." 内部
-        // 更稳健的检查将涉及解析或检查最近的属性
-        if (!/property\s*=\s*["'][^"']*$/.test(prefix) && !/^[^"']*["']/.test(line.substring(widthBefore))) {
-            // 尝试查看 'word' 是否与行上的属性值正则对齐
-            const propRegex = /property\s*=\s*["']([^"']+)["']/;
-            const match = propRegex.exec(line);
-            if (!match || match[1] !== word) {
-                // 可能还需要检查嵌套文本，但让我们假设标准属性用法
-                // 再次检查光标是否在值中
-                const matchIndex = line.indexOf(`property="${word}"`);
-                const matchIndexSingle = line.indexOf(`property='${word}'`);
-                if ((matchIndex === -1 || position.character < matchIndex + 10 || position.character > matchIndex + 10 + word.length) &&
-                    (matchIndexSingle === -1 || position.character < matchIndexSingle + 10 || position.character > matchIndexSingle + 10 + word.length)) {
-                    return;
-                }
+        // 仅在 property="..." 或 property='...' 属性值内部触发，支持跨行属性
+        let isInPropertyValue = false;
+        const propRegex = /property\s*=\s*(["'])([^"']*?)\1/g;
+        let propMatch: RegExpExecArray | null;
+        while ((propMatch = propRegex.exec(text)) !== null) {
+            const openingQuotePos = propMatch.index + propMatch[0].indexOf(propMatch[1]);
+            const valueStart = openingQuotePos + 1;
+            const valueEnd = valueStart + propMatch[2].length;
+            if (docOffset >= valueStart && docOffset <= valueEnd) {
+                isInPropertyValue = true;
+                break;
             }
+        }
+        if (!isInPropertyValue) {
+            return;
         }
 
         // 1. 查找父级 <resultMap> 定义
@@ -78,7 +74,6 @@ export class PropertyDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // 更好的方法：正则 Last Index
-        const docOffset = document.offsetAt(position);
         const textBefore = text.substring(0, docOffset);
 
         // 找到最后未关闭的 <resultMap>？不，XML 更简单。

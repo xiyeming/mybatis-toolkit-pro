@@ -22,30 +22,47 @@ import { QUERY_DEFAULT_MAX_ROWS } from './constants';
 import { QueryResult } from './types';
 import { getQueryResultDateFormats } from './config';
 
-export function activate(context: vscode.ExtensionContext) {
+/**
+ * 解析并校验端口输入。返回有效端口号；无效时提示用户并返回 undefined。
+ */
+async function parsePortInput(portStr: string): Promise<number | undefined> {
+    const port = parseInt(portStr, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+        vscode.window.showErrorMessage('端口必须是 1-65535 之间的有效数字。');
+        return undefined;
+    }
+    return port;
+}
+
+// 在 deactivate 中需要释放的全局服务引用
+let indexerInstance!: ProjectIndexer;
+let dbServiceInstance!: DatabaseService;
+let sqlValidationProviderInstance!: SqlValidationProvider;
+
+export async function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel("MyBatis Toolkit");
     outputChannel.appendLine('MyBatis Toolkit Pro 正在激活...');
 
     // 1. 初始化服务（延迟一帧启动索引，让激活先完成，减少首屏卡顿）
-    const indexer = ProjectIndexer.getInstance(outputChannel);
-    setImmediate(() => indexer.init());
+    indexerInstance = ProjectIndexer.getInstance(outputChannel);
+    setImmediate(() => indexerInstance!.init());
 
-    const dbService = DatabaseService.getInstance();
-    dbService.init();
-    vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', dbService.isConnected());
+    dbServiceInstance = DatabaseService.getInstance();
+    await dbServiceInstance.init(context.secrets);
+    vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', dbServiceInstance.isConnected());
 
-    const codeGenService = new CodeGenerationService(dbService);
+    const codeGenService = new CodeGenerationService(dbServiceInstance);
 
     // 2. 注册提供者
-    const codeLensProvider = new MyBatisCodeLensProvider(indexer);
-    const mapperIntentionProvider = new MapperIntentionProvider(indexer);
-    const formatProvider = new SqlFormattingProvider(dbService);
-    // const decorationProvider = new DecorationProvider(indexer); // Removed
-    const sqlValidationProvider = new SqlValidationProvider(dbService, indexer);
-    const sqlDefinitionProvider = new SqlDefinitionProvider(dbService, indexer);
-    const propertyDefinitionProvider = new PropertyDefinitionProvider(indexer);
-    const schemaProvider = new SchemaDocumentProvider(dbService);
-    const hoverProvider = new MyBatisHoverProvider(indexer);
+    const codeLensProvider = new MyBatisCodeLensProvider(indexerInstance);
+    const mapperIntentionProvider = new MapperIntentionProvider(indexerInstance);
+    const formatProvider = new SqlFormattingProvider(dbServiceInstance);
+    // const decorationProvider = new DecorationProvider(indexerInstance); // Removed
+    sqlValidationProviderInstance = new SqlValidationProvider(dbServiceInstance, indexerInstance);
+    const sqlDefinitionProvider = new SqlDefinitionProvider(dbServiceInstance, indexerInstance);
+    const propertyDefinitionProvider = new PropertyDefinitionProvider(indexerInstance);
+    const schemaProvider = new SchemaDocumentProvider(dbServiceInstance);
+    const hoverProvider = new MyBatisHoverProvider(indexerInstance);
 
     // 0. 代码操作 (生成 XML)
     context.subscriptions.push(
@@ -71,7 +88,7 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    const semanticTokensProvider = new SqlHighlightingProvider(dbService);
+    const semanticTokensProvider = new SqlHighlightingProvider(dbServiceInstance);
     context.subscriptions.push(
         vscode.languages.registerDocumentSemanticTokensProvider(
             { language: 'xml' },
@@ -92,20 +109,20 @@ export function activate(context: vscode.ExtensionContext) {
     // context.subscriptions.push(decorationProvider);
 
     // SQL 验证
-    context.subscriptions.push(sqlValidationProvider);
+    context.subscriptions.push(sqlValidationProviderInstance);
     // 在活动编辑器更改和文档更改时触发验证
     if (vscode.window.activeTextEditor) {
-        sqlValidationProvider.triggerUpdateDiagnostics(vscode.window.activeTextEditor.document);
+        sqlValidationProviderInstance.triggerUpdateDiagnostics(vscode.window.activeTextEditor.document);
     }
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor && editor.document.languageId === 'xml') {
-                sqlValidationProvider.triggerUpdateDiagnostics(editor.document);
+                sqlValidationProviderInstance.triggerUpdateDiagnostics(editor.document);
             }
         }),
         vscode.workspace.onDidChangeTextDocument(event => {
             if (event.document.languageId === 'xml') {
-                sqlValidationProvider.triggerUpdateDiagnostics(event.document);
+                sqlValidationProviderInstance.triggerUpdateDiagnostics(event.document);
             }
         })
     );
@@ -148,7 +165,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // 数据库浏览器
-    const treeProvider = new DatabaseTreeDataProvider(dbService);
+    const treeProvider = new DatabaseTreeDataProvider(dbServiceInstance);
     context.subscriptions.push(
         vscode.window.registerTreeDataProvider('mybatisToolkit.databaseExplorer', treeProvider)
     );
@@ -162,6 +179,8 @@ export function activate(context: vscode.ExtensionContext) {
             if (!host) return;
             const portStr = await vscode.window.showInputBox({ prompt: '数据库端口', placeHolder: '3306', value: '3306' });
             if (!portStr) return;
+            const port = await parsePortInput(portStr);
+            if (port === undefined) return;
             const user = await vscode.window.showInputBox({ prompt: '数据库用户名', placeHolder: 'root', value: 'root' });
             if (!user) return;
             const password = await vscode.window.showInputBox({ prompt: '数据库密码', password: true });
@@ -174,15 +193,15 @@ export function activate(context: vscode.ExtensionContext) {
                 name: database,
                 type: type as any,
                 host,
-                port: parseInt(portStr),
+                port,
                 user,
                 password,
                 database
             };
 
-            await dbService.addConnection(config);
+            await dbServiceInstance.addConnection(config);
             // 可选：自动连接
-            // await dbService.connect(config.id);
+            // await dbServiceInstance.connect(config.id);
         }),
         vscode.commands.registerCommand('mybatisToolkit.editConnection', async (item: ConnectionItem) => {
             if (!item || !item.config) return;
@@ -217,6 +236,8 @@ export function activate(context: vscode.ExtensionContext) {
                 value: oldConfig.port.toString()
             });
             if (!portStr) return;
+            const port = await parsePortInput(portStr);
+            if (port === undefined) return;
 
             const user = await vscode.window.showInputBox({
                 prompt: '数据库用户名',
@@ -252,17 +273,17 @@ export function activate(context: vscode.ExtensionContext) {
                 // 如果我们想要自定义名称，我们需要另一个输入。目前保持简单：名称 = 数据库
                 type: type as any,
                 host,
-                port: parseInt(portStr),
+                port,
                 user,
                 password: finalPassword,
                 database
             };
 
-            await dbService.updateConnection(newConfig);
+            await dbServiceInstance.updateConnection(newConfig);
             if (item.isActive) {
                 const reload = await vscode.window.showInformationMessage('连接配置已更新。是否重新连接？', '是', '否');
                 if (reload === '是') {
-                    await dbService.connect(newConfig.id);
+                    await dbServiceInstance.connect(newConfig.id);
                 }
             } else {
                 vscode.window.showInformationMessage(`连接 ${newConfig.name} 已已更新。`);
@@ -272,25 +293,25 @@ export function activate(context: vscode.ExtensionContext) {
             if (item && item.config) {
                 const answer = await vscode.window.showWarningMessage(`确定要移除 ${item.config.name} 吗？`, '是', '否');
                 if (answer === '是') {
-                    await dbService.removeConnection(item.config.id);
+                    await dbServiceInstance.removeConnection(item.config.id);
                 }
             }
         }),
         vscode.commands.registerCommand('mybatisToolkit.connect', async (item: ConnectionItem) => {
             if (item && item.config) {
-                await dbService.connect(item.config.id);
+                await dbServiceInstance.connect(item.config.id);
                 vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', true);
             }
         }),
         vscode.commands.registerCommand('mybatisToolkit.disconnect', async () => {
-            await dbService.disconnect();
+            await dbServiceInstance.disconnect();
             vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', false);
         }),
         vscode.commands.registerCommand('mybatisToolkit.refresh', async () => {
-            await dbService.refreshTables();
+            await dbServiceInstance.refreshTables();
         }),
         vscode.commands.registerCommand('mybatisToolkit.selectConnection', async () => {
-            const connections = dbService.getConnections();
+            const connections = dbServiceInstance.getConnections();
             if (connections.length === 0) {
                 vscode.window.showInformationMessage('请先在数据库浏览器中添加连接。');
                 return;
@@ -304,7 +325,7 @@ export function activate(context: vscode.ExtensionContext) {
                 { placeHolder: '选择要连接的数据库' }
             );
             if (picked && picked.id) {
-                await dbService.connect(picked.id);
+                await dbServiceInstance.connect(picked.id);
                 vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', true);
             }
         }),
@@ -318,7 +339,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage('请在 SQL 编辑器中执行，或先使用「新建查询窗口」打开 SQL 文件。');
                 return;
             }
-            if (!dbService.isConnected()) {
+            if (!dbServiceInstance.isConnected()) {
                 vscode.window.showWarningMessage('请先点击标题栏「选择数据库」连接后再执行。');
                 return;
             }
@@ -330,7 +351,7 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
             const panel = QueryResultsPanel.createOrShow(context.extensionUri, '查询结果');
-            const result = await dbService.executeSql(sql, QUERY_DEFAULT_MAX_ROWS);
+            const result = await dbServiceInstance.executeSql(sql, QUERY_DEFAULT_MAX_ROWS);
             if (result.message && result.columns.length === 0 && result.rows.length === 0) {
                 panel.showError(result.message);
             } else {
@@ -343,7 +364,7 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage('请在 SQL 编辑器中执行。');
                 return;
             }
-            if (!dbService.isConnected()) {
+            if (!dbServiceInstance.isConnected()) {
                 vscode.window.showWarningMessage('请先点击标题栏「选择数据库」连接后再执行。');
                 return;
             }
@@ -360,7 +381,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const runSql = sql.endsWith(';') ? sql : sql + ';';
                 const title = total > 1 ? `查询结果 (${i + 1}/${total})` : '查询结果';
                 const panel = QueryResultsPanel.createNew(context.extensionUri, title);
-                const result = await dbService.executeSql(runSql, QUERY_DEFAULT_MAX_ROWS);
+                const result = await dbServiceInstance.executeSql(runSql, QUERY_DEFAULT_MAX_ROWS);
                 if (result.message && result.columns.length === 0 && result.rows.length === 0 && !result.message.includes('空语句')) {
                     panel.showError(result.message);
                 } else if (result.columns.length > 0 || result.rows.length > 0) {
@@ -375,19 +396,25 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
         vscode.commands.registerCommand('mybatisToolkit.showFullStructure', async () => {
-            if (!dbService.isConnected()) {
+            if (!dbServiceInstance.isConnected()) {
                 vscode.window.showWarningMessage('请先点击标题栏「选择数据库」连接后再执行。');
                 return;
             }
             const panel = QueryResultsPanel.createOrShow(context.extensionUri, '全部结构');
-            const tables = await dbService.getTableNames();
+            const tables = await dbServiceInstance.getTableNames();
             const columns = ['表名', '列名', '类型', '可空', '键', '默认', '注释'];
             const rows: any[][] = [];
             const maxTables = 200;
-            for (let i = 0; i < Math.min(tables.length, maxTables); i++) {
-                const cols = await dbService.getTableSchema(tables[i]);
-                for (const c of cols) {
-                    rows.push([tables[i], c.Field, c.Type, c.Null, c.Key, c.Default ?? '', c.Comment ?? '']);
+            const schemaConcurrency = 10;
+            const selectedTables = tables.slice(0, maxTables);
+            for (let i = 0; i < selectedTables.length; i += schemaConcurrency) {
+                const chunk = selectedTables.slice(i, i + schemaConcurrency);
+                const schemas = await Promise.all(chunk.map(t => dbServiceInstance.getTableSchema(t)));
+                for (let j = 0; j < chunk.length; j++) {
+                    const tableName = chunk[j];
+                    for (const c of schemas[j]) {
+                        rows.push([tableName, c.Field, c.Type, c.Null, c.Key, c.Default ?? '', c.Comment ?? '']);
+                    }
                 }
             }
             const result: QueryResult = {
@@ -498,7 +525,7 @@ export function activate(context: vscode.ExtensionContext) {
                 methodInfo.params.forEach((type, name) => params.push({ name, type }));
 
                 const returnType = methodInfo.returnType || '';
-                const generator = new MethodSqlGenerator(indexer);
+                const generator = new MethodSqlGenerator(indexerInstance);
                 const sqlXml = generator.generateSql(methodName, returnType, params, fullClassName);
 
                 if (!sqlXml) {
@@ -507,7 +534,14 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 const xmlPath = vscode.Uri.parse(xmlFile).fsPath;
-                let xmlContent = fs.readFileSync(xmlPath, 'utf-8');
+                let xmlContent: string;
+                try {
+                    xmlContent = await fs.promises.readFile(xmlPath, 'utf-8');
+                } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    vscode.window.showErrorMessage(`读取 XML 文件失败: ${msg}`);
+                    return;
+                }
                 if (xmlContent.includes(`id="${methodName}"`)) {
                     vscode.window.showInformationMessage(`XML 中已存在 id="${methodName}"，未重复插入`);
                     const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(xmlPath));
@@ -522,7 +556,13 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 const newContent = xmlContent.slice(0, closeTagIndex) + '\n  ' + sqlXml + '\n' + xmlContent.slice(closeTagIndex);
-                fs.writeFileSync(xmlPath, newContent, 'utf-8');
+                try {
+                    await fs.promises.writeFile(xmlPath, newContent, 'utf-8');
+                } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    vscode.window.showErrorMessage(`写入 XML 文件失败: ${msg}`);
+                    return;
+                }
 
                 const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(xmlPath));
                 await vscode.window.showTextDocument(doc);
@@ -537,4 +577,9 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel.appendLine('MyBatis Toolkit Pro 激活成功。');
 }
 
-export function deactivate() { }
+export async function deactivate() {
+    sqlValidationProviderInstance?.dispose();
+    await dbServiceInstance?.dispose();
+    indexerInstance?.dispose();
+    ProjectIndexer.destroyInstance();
+}

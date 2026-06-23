@@ -31,6 +31,9 @@ interface Token {
 
 export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvider {
 
+    // 超过此大小的 XML 文件跳过格式化，避免大文件导致扩展无响应
+    private static readonly MAX_FORMAT_SIZE = 200 * 1024;
+
     constructor(private dbService: DatabaseService) { }
 
     private getDialect(): Dialect {
@@ -43,6 +46,13 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
     public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.TextEdit[] {
         const text = document.getText();
+
+        // 超大文件跳过格式化，避免正则回溯或长耗时处理导致扩展无响应
+        if (text.length > SqlFormattingProvider.MAX_FORMAT_SIZE) {
+            vscode.window.showWarningMessage(`文件过大 (${(text.length / 1024).toFixed(1)} KB)，已超过格式化安全阈值，跳过格式化。`);
+            return [];
+        }
+
         const indentSize = getFormattingIndentSize();
 
         // 1. 获取 Dialect
@@ -72,7 +82,8 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
         const xmlDoctypeRegex = /^<\s*!\s*DOCTYPE[\s\S]*?>/i;
         const xmlCommentRegex = /^<\s*!\s*--[\s\S]*?--\s*>/;
         const xmlCdataRegex = /^<\s*!\[CDATA\[[\s\S]*?\]\]>/i;
-        const xmlTagRegex = /^<\s*(\/?)\s*([\w:\-\.]+)(?:[^>"']|"[^"]*"|'[^']*')*?(\/?)>/;
+        // XML 标签：匹配 name="value" 或 name='value' 形式的属性，降低通用 [^>]* 的回溯风险
+        const xmlTagRegex = /^<\s*(\/?)\s*([\w:\-\.]+)(?:\s+[\w:\-\.]+=(?:"[^"]*"|'[^']*'))*\s*(\/?)>/;
         const entityRegex = /^&(#x?[0-9a-fA-F]+|[a-zA-Z0-9]+);/;
         const variableRegex = /^[\#\$]\{[^\}]*\}/;
         const wordRegex = /^[\w\.]+/;
@@ -291,7 +302,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
 
         const append = (str: string) => {
             if (newlineRequested) {
-                output = output.trimRight();
+                output = output.trimEnd();
                 output += '\n';
                 // 总缩进包括 xmlDepth + extraIndent (括号的基准) + clauseDepth (当前语句部分)
                 // parenDepth 主要用于行内括号的视觉效果，但对于块级子查询，我们通常重置它或通过 extraIndent 处理
@@ -378,7 +389,7 @@ export class SqlFormattingProvider implements vscode.DocumentFormattingEditProvi
                             if (selectResult) {
                                 // 应用格式化结果
                                 if (newlineRequested) {
-                                    output = output.trimRight();
+                                    output = output.trimEnd();
                                     output += '\n';
                                     output += ' '.repeat(totalIndent * indentSize);
                                     newlineRequested = false;
