@@ -53,7 +53,8 @@ export function isValidationEnabled(): boolean {
 
 export function getNavigationExclude(): string[] {
     return getConfig().get<string[]>('navigation.exclude', [
-        'target', 'build', 'bin', 'out', 'dist', 'node_modules', '.git'
+        'target', 'build', 'bin', 'out', 'dist', 'node_modules', '.git',
+        '.idea', '.vscode', '.settings', '.project', '.classpath', '.factorypath', '.metadata'
     ]);
 }
 

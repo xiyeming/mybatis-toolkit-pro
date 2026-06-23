@@ -6,6 +6,21 @@
 
 ---
 
+## [1.3.0] - 2026-06-23
+
+### 新增
+
+- **IDE 目录默认排除**：`navigation.exclude` 默认列表中新增 `.idea`、`.vscode`、`.settings`、`.project`、`.classpath`、`.factorypath`、`.metadata`，覆盖 JetBrains 全系列、VS Code、Eclipse 等主流 IDE 的配置目录。
+- **`.gitignore` 支持**：索引器在启动时自动读取工作区根目录的 `.gitignore`，解析目录类排除规则并合并到 `findFiles` 的排除模式与运行时 `shouldExclude` 检查中，无需手动添加 `node_modules`、`target` 等常见目录。
+  - 支持语法：`dir/` 结尾的目录规则、无斜杠的纯目录名；跳过注释（`#`）、否定行（`!`）及通配符文件模式（如 `*.class`）。
+  - 启动日志输出：`[索引器] 从 .gitignore 加载排除目录: ...`。
+
+### 修复
+
+- **SQL 列名跳转：驼峰别名匹配**：`SqlDefinitionProvider.toCamelCase()` 对已经是驼峰的别名（如 `payPoints`）误执行 `toLowerCase()`，导致 Java 字段查找失败。现已修复：仅对含下划线的列名执行转换，驼峰命名保持原样。
+
+---
+
 ## [1.2.0] - 2026-06-23
 
 ### 新增

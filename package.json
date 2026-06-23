@@ -2,7 +2,7 @@
   "name": "mybatis-toolkit-pro",
   "displayName": "MyBatis Toolkit Pro",
   "description": "专业的 MyBatis 开发工具包",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "publisher": "xiyeming",
   "license": "MIT",
   "keywords": [
@@ -335,7 +335,7 @@
         },
         "mybatisToolkit.navigation.exclude": {
           "type": "array",
-          "default": ["target", "build", "bin", "out", "dist", "node_modules", ".git"],
+          "default": ["target", "build", "bin", "out", "dist", "node_modules", ".git", ".idea", ".vscode", ".settings", ".project", ".classpath", ".factorypath", ".metadata"],
           "description": "索引排除目录",
           "markdownDescription": "扫描 Java/XML 时跳过的文件夹名（不含路径），用于减少无关代码参与 Mapper 索引与跳转。",
           "items": { "type": "string" }

@@ -4,12 +4,57 @@ import { SchemaDocumentProvider } from './SchemaDocumentProvider';
 import { ProjectIndexer } from '../services/ProjectIndexer';
 
 export class SqlDefinitionProvider implements vscode.DefinitionProvider {
+    private outputChannel: vscode.OutputChannel;
+
     constructor(
         private dbService: DatabaseService,
         private indexer: ProjectIndexer
-    ) { }
+    ) {
+        this.outputChannel = vscode.window.createOutputChannel('MyBatis Definition');
+    }
+
+    private log(msg: string): void {
+        this.outputChannel.appendLine(`[Definition] ${msg}`);
+    }
 
     async provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): Promise<vscode.Definition | null> {
+        // 4. SQL 列名 → Java 字段 / resultMap 列定义
+        if (document.languageId === 'xml') {
+            this.log(`点击位置: 行${position.line} 列${position.character}`);
+
+            // 先用默认正则获取光标所在标识符
+            const defaultRange = document.getWordRangeAtPosition(position);
+            if (defaultRange) {
+                const defaultWord = document.getText(defaultRange);
+                this.log(`默认正则匹配: word="${defaultWord}", range=行${defaultRange.start.line} 列${defaultRange.start.character}-${defaultRange.end.character}`);
+                if (defaultWord && !defaultWord.includes('#{') && !defaultWord.includes('${}')) {
+                    const result = this.resolveColumnDefinition(document, position, defaultWord, defaultRange);
+                    if (result) {
+                        this.log(`跳转成功 (默认正则路径)`);
+                        return result;
+                    }
+                }
+            } else {
+                this.log(`默认正则未匹配到词`);
+            }
+
+            // 尝试含点号的正则（如 a.col 形式的列名）
+            const dotRange = document.getWordRangeAtPosition(position, /[\w.]+/);
+            if (dotRange) {
+                const dotWord = document.getText(dotRange).replace(/[`"']/g, '');
+                this.log(`点号正则匹配: word="${dotWord}", range=行${dotRange.start.line} 列${dotRange.start.character}-${dotRange.end.character}`);
+                if (dotWord && !dotWord.includes('#{') && !dotWord.includes('${}')) {
+                    const result = this.resolveColumnDefinition(document, position, dotWord, dotRange);
+                    if (result) {
+                        this.log(`跳转成功 (点号正则路径)`);
+                        return result;
+                    }
+                }
+            } else {
+                this.log(`点号正则未匹配到词`);
+            }
+        }
+
         const range = document.getWordRangeAtPosition(position, /[`"']?[\w.]+(?:[`"'][\w.]+)*[`"']?/);
         if (!range) return null;
 
@@ -30,7 +75,6 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
             const lineContent = document.lineAt(position.line).text;
 
             // 情况 A: 定义 -> 用法 (<resultMap id="Target"> -> <select resultMap="Target">)
-            // 检查我们是否点击了 resultMap 定义的 ID
             const definitionMatch = lineContent.match(/<resultMap\s+id="([^"]+)"/);
             if (definitionMatch && definitionMatch[1] === word) {
                 const namespaceMatch = document.getText().match(/<mapper\s+namespace="([^"]+)"/);
@@ -70,12 +114,6 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
             return new vscode.Location(uri, new vscode.Position(0, 0));
         }
 
-        // 4. SQL 列名 → Java 字段 / resultMap 列定义
-        if (document.languageId === 'xml') {
-            const result = this.resolveColumnDefinition(document, position, word, range);
-            if (result) return result;
-        }
-
         return null;
     }
 
@@ -93,14 +131,23 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
 
         // 4a. 确认光标在 SQL 语句块内
         const blockInfo = this.findSqlBlock(text, offset);
-        if (!blockInfo) return null;
+        if (!blockInfo) {
+            this.log(`  resolveColumn: 光标不在 SQL 块内 (offset=${offset})`);
+            return null;
+        }
+        this.log(`  resolveColumn: 找到 SQL 块, openTag="${blockInfo.openTag.substring(0, 80)}..."`);
 
         // 4b. 提取光标所在列的别名（优先）或列名
         const propertyName = this.extractPropertyName(text, offset, word, wordRange, document);
-        if (!propertyName) return null;
+        if (!propertyName) {
+            this.log(`  resolveColumn: extractPropertyName 返回 null`);
+            return null;
+        }
+        this.log(`  resolveColumn: word="${word}" → propertyName="${propertyName}"`);
 
         // 4c. 获取当前 SQL 块的 resultMap 或 resultType
         const { resultMapId, resultType } = this.extractBlockAttrs(blockInfo.openTag);
+        this.log(`  resolveColumn: resultMapId="${resultMapId ?? '无'}", resultType="${resultType ?? '无'}"`);
 
         // 4d. 有 resultMap → 跳转到 <result>/<id> property="..." 行
         if (resultMapId) {
@@ -109,11 +156,13 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
                 const mapperXml = this.indexer.getXmlByInterface(namespaceMatch[1]);
                 if (mapperXml && mapperXml.resultMaps.has(resultMapId)) {
                     const rm = mapperXml.resultMaps.get(resultMapId)!;
-                    // 在 resultMap 区域内查找 property="propertyName" 的 <result>/<id> 行
                     const resultLine = this.findResultMapPropertyLine(text, rm.line, propertyName);
+                    this.log(`  resolveColumn: resultMap 查找 property="${propertyName}" → 行${resultLine}`);
                     if (resultLine >= 0) {
                         return new vscode.Location(document.uri, new vscode.Position(resultLine, 0));
                     }
+                } else {
+                    this.log(`  resolveColumn: resultMap "${resultMapId}" 未在索引中找到`);
                 }
             }
         }
@@ -122,8 +171,11 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
         if (resultType) {
             const camelName = this.toCamelCase(propertyName);
             const javaClass = this.indexer.getClassByFullName(resultType);
-            if (javaClass) {
+            if (!javaClass) {
+                this.log(`  resolveColumn: Java 类 "${resultType}" 未在索引中找到`);
+            } else {
                 const field = javaClass.fields.get(camelName);
+                this.log(`  resolveColumn: 查找字段 "${camelName}" → ${field ? `行${field.line}` : '未找到'}`);
                 if (field) {
                     return new vscode.Location(javaClass.fileUri, new vscode.Position(field.line, 0));
                 }
@@ -174,8 +226,8 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
     /**
      * 提取光标所在列对应的属性名：
      * - 优先使用别名（AS alias 或隐式空格别名）
+     * - 光标在列名上时，向前检查同一 SELECT 项是否有 AS 别名，有则返回别名
      * - 无别名时取列名最后一段（去 alias. 前缀）
-     * - 如果光标本身就点击在别名上，直接返回别名
      */
     private extractPropertyName(
         text: string,
@@ -184,7 +236,6 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
         wordRange: vscode.Range,
         document: vscode.TextDocument
     ): string | null {
-        // 获取当前行光标前后的文本片段
         const lineText = document.lineAt(wordRange.start.line).text;
         const wordStartInLine = wordRange.start.character;
 
@@ -202,25 +253,33 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // 检查光标是否在隐式别名上（expr alias，空格分隔）：
-        // 前面有 "expr " 且 expr 看起来像列/表达式
-        // 但需确认 word 不是 expr 本身而是别名
-        // 判断：before 以 "标识符/右括号 + 空格" 结尾，且不是 AS
         const implicitAliasMatch = /([)\w.`"\']+)\s+$/i.exec(before);
         if (implicitAliasMatch && !/\bAS\s+$/i.test(before)) {
-            const prevPart = implicitAliasMatch[1];
-            // 前面部分看起来像表达式（含 .、括号、引号）或纯标识符
-            // 且当前 word 是简单标识符（不像表达式）
             if (/^[a-zA-Z_]\w*$/.test(word) && !/^(SELECT|FROM|WHERE|AND|OR|ON|JOIN|LEFT|RIGHT|INNER|OUTER|GROUP|ORDER|HAVING|LIMIT|UNION|CASE|WHEN|THEN|ELSE|END|AS|IN|IS|NOT|NULL|LIKE|BETWEEN|EXISTS|INSERT|UPDATE|DELETE|SET|VALUES|INTO|DISTINCT|ALL)$/i.test(word)) {
-                // 确认后面不是继续的列（如 "a b c" 的中间词不应被当作别名）
-                // 后面应该是逗号、FROM、或行尾
                 if (/^\s*(,|FROM\b|\bFROM|$)/i.test(after)) {
                     return word;
                 }
             }
         }
 
-        // 光标点击的是列名本身（非别名）
-        // 提取列名最后一段：a.pet_name -> pet_name
+        // 光标点击的是列名本身，检查同行是否有 AS 别名
+        // 如 bup.id AS recId → 点击 id 时应返回 recId
+        const afterTrimmed = after.trimStart();
+        const asAfterMatch = /^\bAS\b\s+([\w`"']+)\s*(?:,|FROM\b|$)/i.exec(afterTrimmed);
+        if (asAfterMatch) {
+            return asAfterMatch[1].replace(/^["'`]|["'`]$/g, '');
+        }
+
+        // 检查隐式别名：列名后跟空格 + 标识符（非关键字）
+        const implicitAfterMatch = /^\s+([a-zA-Z_]\w*)\s*(?:,|FROM\b|$)/i.exec(after);
+        if (implicitAfterMatch) {
+            const alias = implicitAfterMatch[1];
+            if (!/^(SELECT|FROM|WHERE|AND|OR|ON|JOIN|LEFT|RIGHT|INNER|OUTER|GROUP|ORDER|HAVING|LIMIT|UNION|CASE|WHEN|THEN|ELSE|END|AS|IN|IS|NOT|NULL|LIKE|BETWEEN|EXISTS|INSERT|UPDATE|DELETE|SET|VALUES|INTO|DISTINCT|ALL)$/i.test(alias)) {
+                return alias;
+            }
+        }
+
+        // 无别名，取列名最后一段：a.pet_name -> pet_name
         const colName = word.includes('.') ? word.split('.').pop()! : word;
         return colName.replace(/^["'`]|["'`]$/g, '');
     }
@@ -246,6 +305,9 @@ export class SqlDefinitionProvider implements vscode.DefinitionProvider {
 
     /** 下划线转驼峰：pet_name → petName */
     private toCamelCase(str: string): string {
-        return str.toLowerCase().replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+        if (str.includes('_')) {
+            return str.toLowerCase().replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+        }
+        return str;
     }
 }

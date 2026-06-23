@@ -22,6 +22,7 @@ export class ProjectIndexer {
     private pendingFire = false;
     private watchers: vscode.FileSystemWatcher[] = [];
     private disposed = false;
+    private gitignoreExcludes: string[] = [];
 
     private constructor(outputChannel: vscode.OutputChannel) {
         this.outputChannel = outputChannel;
@@ -87,8 +88,11 @@ export class ProjectIndexer {
         this.outputChannel.appendLine('[索引器] 开始全项目扫描...');
         const start = Date.now();
 
+        await this.loadGitignoreExcludes();
+
         const excludes = getNavigationExclude();
-        const excludePattern = `**/{${excludes.join(',')}}/**`;
+        const allExcludes = [...excludes, ...this.gitignoreExcludes];
+        const excludePattern = `**/{${allExcludes.join(',')}}/**`;
         // 提高上限，确保多模块、dao/mapper 子目录（如 dao/order/OrderMapper.java、mapper/order/OrderMapper.xml）均被扫描
         const maxResults = 100000;
 
@@ -201,10 +205,69 @@ export class ProjectIndexer {
 
         const fsPath = JavaAstUtils.normalizePath(uri.fsPath);
         // 检查路径中是否包含排除的目录
-        return excludes.some(pattern => {
+        const configExcluded = excludes.some(pattern => {
             const normalized = pattern.toLowerCase();
             return fsPath.includes(`/${normalized}/`) || fsPath.includes(`\\${normalized}\\`);
         });
+        // 同时检查 .gitignore 提取的目录
+        const gitignoreExcluded = this.gitignoreExcludes.some(pattern => {
+            const normalized = pattern.toLowerCase();
+            return fsPath.includes(`/${normalized}/`) || fsPath.includes(`\\${normalized}\\`);
+        });
+        return configExcluded || gitignoreExcluded;
+    }
+
+    /** 读取各工作区根目录的 .gitignore，提取目录排除项 */
+    private async loadGitignoreExcludes(): Promise<void> {
+        this.gitignoreExcludes = [];
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders) return;
+
+        for (const folder of folders) {
+            const gitignoreUri = vscode.Uri.joinPath(folder.uri, '.gitignore');
+            try {
+                const doc = await vscode.workspace.openTextDocument(gitignoreUri);
+                const dirs = this.parseGitignorePatterns(doc.getText());
+                for (const d of dirs) {
+                    if (!this.gitignoreExcludes.includes(d)) {
+                        this.gitignoreExcludes.push(d);
+                    }
+                }
+            } catch {
+                // .gitignore 不存在，跳过
+            }
+        }
+
+        if (this.gitignoreExcludes.length > 0) {
+            this.outputChannel.appendLine(`[索引器] 从 .gitignore 加载排除目录: ${this.gitignoreExcludes.join(', ')}`);
+        }
+    }
+
+    /** 从 .gitignore 内容中提取目录名（以 / 结尾或无明显扩展名的隐藏目录） */
+    private parseGitignorePatterns(content: string): string[] {
+        const dirs: string[] = [];
+        const lines = content.split('\n');
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            if (trimmed.startsWith('!')) continue;
+
+            let pattern = trimmed.replace(/^\//, '');
+
+            if (pattern.endsWith('/')) {
+                const dirName = pattern.slice(0, -1);
+                if (dirName) {
+                    const leaf = dirName.split('/').pop()!;
+                    if (!dirs.includes(leaf)) dirs.push(leaf);
+                }
+            } else if (!pattern.includes('*') && !pattern.includes('/')) {
+                const leaf = pattern.split('/').pop()!;
+                if (leaf && !dirs.includes(leaf)) dirs.push(leaf);
+            }
+        }
+
+        return dirs;
     }
 
     private async handleFileChange(uri: vscode.Uri) {
