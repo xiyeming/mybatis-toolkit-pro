@@ -8,15 +8,23 @@ import { getMybatisPlusCodeGenConfig, getCodeGenDirNames } from '../config';
 export type CodeGenStyle = 'mybatis-plus' | 'mybatis';
 
 export class CodeGenerationService {
-    constructor(private dbService: DatabaseService) { }
+    private outputChannel: vscode.OutputChannel;
+
+    constructor(private dbService: DatabaseService, outputChannel: vscode.OutputChannel) {
+        this.outputChannel = outputChannel;
+    }
 
     public async generateCode(table: string, basePackage: string, workspaceRoot: string, style: CodeGenStyle = 'mybatis-plus') {
+        this.outputChannel.appendLine(`[代码生成] 开始: 表=${table}, 包=${basePackage}, 风格=${style}, 目录=${workspaceRoot}`);
+        const start = Date.now();
         try {
             const columns = await this.dbService.getTableSchema(table);
             if (!columns || columns.length === 0) {
+                this.outputChannel.appendLine(`[代码生成] 失败: 未找到表 ${table} 的列信息`);
                 vscode.window.showErrorMessage(`未找到表的列信息: ${table}`);
                 return;
             }
+            this.outputChannel.appendLine(`[代码生成] 获取到 ${columns.length} 列，主键列=${columns.find(c => c.Key === 'PRI')?.Field ?? columns[0]?.Field ?? 'id'}`);
 
             const className = this.toPascalCase(table);
             const dirNames = getCodeGenDirNames();
@@ -50,11 +58,20 @@ export class CodeGenerationService {
             await fs.promises.writeFile(mapperPath, mapperInterfaceContent, 'utf8');
             await fs.promises.writeFile(xmlPath, mapperXmlContent, 'utf8');
 
+            this.outputChannel.appendLine(`[代码生成] 文件已写入:`);
+            this.outputChannel.appendLine(`  Entity:     ${entityPath}`);
+            this.outputChannel.appendLine(`  Mapper:     ${mapperPath}`);
+            this.outputChannel.appendLine(`  XML:        ${xmlPath}`);
+
             const doc = await vscode.workspace.openTextDocument(entityPath);
             await vscode.window.showTextDocument(doc);
+            const elapsed = Date.now() - start;
+            this.outputChannel.appendLine(`[代码生成] 完成: ${table} → ${className} (耗时 ${elapsed}ms)`);
             vscode.window.showInformationMessage(`已为表 '${table}' 生成 Entity、Mapper 与 XML`);
         } catch (e) {
+            const elapsed = Date.now() - start;
             const msg = e instanceof Error ? e.message : String(e);
+            this.outputChannel.appendLine(`[代码生成] 异常 (${elapsed}ms): ${msg}`);
             vscode.window.showErrorMessage(`生成代码失败: ${msg}`);
         }
     }

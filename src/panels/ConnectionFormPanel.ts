@@ -11,25 +11,27 @@ export class ConnectionFormPanel {
     private resolvePromise: ((config: ConnectionConfig | undefined) => void) | undefined;
     private extensionUri: vscode.Uri;
     private dbService: DatabaseService;
+    private outputChannel: vscode.OutputChannel;
 
-    public static createOrShow(extensionUri: vscode.Uri, dbService: DatabaseService, mode: 'add' | 'edit', existing?: ConnectionConfig): Promise<ConnectionConfig | undefined> {
+    public static createOrShow(extensionUri: vscode.Uri, dbService: DatabaseService, outputChannel: vscode.OutputChannel, mode: 'add' | 'edit', existing?: ConnectionConfig): Promise<ConnectionConfig | undefined> {
         const promise = new Promise<ConnectionConfig | undefined>((resolve) => {
-            ConnectionFormPanel.currentPanel = ConnectionFormPanel.createNew(extensionUri, dbService, mode, existing, resolve);
+            ConnectionFormPanel.currentPanel = ConnectionFormPanel.createNew(extensionUri, dbService, outputChannel, mode, existing, resolve);
         });
         return promise;
     }
 
-    private static createNew(extensionUri: vscode.Uri, dbService: DatabaseService, mode: 'add' | 'edit', existing: ConnectionConfig | undefined, resolve: (config: ConnectionConfig | undefined) => void): ConnectionFormPanel {
+    private static createNew(extensionUri: vscode.Uri, dbService: DatabaseService, outputChannel: vscode.OutputChannel, mode: 'add' | 'edit', existing: ConnectionConfig | undefined, resolve: (config: ConnectionConfig | undefined) => void): ConnectionFormPanel {
         const panel = vscode.window.createWebviewPanel(
             ConnectionFormPanel.viewType,
             mode === 'edit' ? '编辑数据库连接' : '添加数据库连接',
             vscode.ViewColumn.Beside,
             { enableScripts: true, retainContextWhenHidden: true }
         );
-        const instance = new ConnectionFormPanel(extensionUri, dbService, panel, mode, existing?.id, resolve);
+        const instance = new ConnectionFormPanel(extensionUri, dbService, outputChannel, panel, mode, existing?.id, resolve);
         panel.onDidDispose(() => {
             if (ConnectionFormPanel.currentPanel === instance) {
                 ConnectionFormPanel.currentPanel = undefined;
+                outputChannel.dispose();
                 resolve(undefined);
             }
         });
@@ -51,9 +53,10 @@ export class ConnectionFormPanel {
         return instance;
     }
 
-    private constructor(extensionUri: vscode.Uri, dbService: DatabaseService, panel: vscode.WebviewPanel, private mode: 'add' | 'edit', private editId: string | undefined, resolve: (config: ConnectionConfig | undefined) => void) {
+    private constructor(extensionUri: vscode.Uri, dbService: DatabaseService, outputChannel: vscode.OutputChannel, panel: vscode.WebviewPanel, private mode: 'add' | 'edit', private editId: string | undefined, resolve: (config: ConnectionConfig | undefined) => void) {
         this.extensionUri = extensionUri;
         this.dbService = dbService;
+        this.outputChannel = outputChannel;
         this.panel = panel;
         this.resolvePromise = resolve;
     }
@@ -309,6 +312,8 @@ export class ConnectionFormPanel {
             database,
             driverPath: payload.driverPath || undefined
         };
+        const action = this.mode === 'edit' ? '更新' : '添加';
+        this.outputChannel.appendLine(`[连接表单] ${action}连接: 名称=${config.name}, 类型=${config.type}, 主机=${config.host}, 端口=${config.port}, 数据库=${config.database}, 用户=${config.user}, 驱动路径=${config.driverPath || '默认'}`);
         if (this.resolvePromise) {
             this.resolvePromise(config);
         }
@@ -334,10 +339,14 @@ export class ConnectionFormPanel {
                 database,
                 driverPath: payload.driverPath || undefined
             };
+            this.outputChannel.appendLine(`[连接表单] 测试连接: 类型=${config.type}, 主机=${config.host}, 端口=${config.port}, 数据库=${config.database}, 用户=${config.user}`);
             const result = await this.dbService.testConnection(config);
+            this.outputChannel.appendLine(`[连接表单] 测试结果: 成功=${result.success}, 消息=${result.message}`);
             this.panel?.webview.postMessage({ type: 'testResult', success: result.success, message: result.message });
         } catch (error: any) {
-            this.panel?.webview.postMessage({ type: 'testResult', success: false, message: error.message || String(error) });
+            const msg = error.message || String(error);
+            this.outputChannel.appendLine(`[连接表单] 测试异常: ${msg}`);
+            this.panel?.webview.postMessage({ type: 'testResult', success: false, message: msg });
         }
     }
 

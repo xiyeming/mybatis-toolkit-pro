@@ -6,6 +6,15 @@
 
 ---
 
+## [1.6.2] - 2026-06-23
+
+### 优化
+
+- **测试连接日志**：`DatabaseService.testConnection()` 与 `ConnectionFormPanel.handleTestConnection()` 添加详细 VS Code 输出通道日志，记录连接参数（不含密码）、适配器类型、耗时与结果，便于排查连接问题。
+- **代码生成日志**：`CodeGenerationService.generateCode()` 添加完整日志链路，记录开始参数、获取列数、主键列、输出文件路径与耗时，异常时记录错误信息。
+
+---
+
 ## [1.6.0] - 2026-06-23
 
 ### 优化

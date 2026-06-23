@@ -27,6 +27,8 @@ import { getQueryResultDateFormats } from './config';
 let indexerInstance!: ProjectIndexer;
 let dbServiceInstance!: DatabaseService;
 let sqlValidationProviderInstance!: SqlValidationProvider;
+let connectionOutputChannel!: vscode.OutputChannel;
+let codeGenOutputChannel!: vscode.OutputChannel;
 
 export async function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel("MyBatis Toolkit");
@@ -40,7 +42,10 @@ export async function activate(context: vscode.ExtensionContext) {
     await dbServiceInstance.init(context.secrets);
     vscode.commands.executeCommand('setContext', 'mybatisToolkit.connected', dbServiceInstance.isConnected());
 
-    const codeGenService = new CodeGenerationService(dbServiceInstance);
+    connectionOutputChannel = vscode.window.createOutputChannel("MyBatis Connection");
+    codeGenOutputChannel = vscode.window.createOutputChannel("MyBatis CodeGen");
+
+    const codeGenService = new CodeGenerationService(dbServiceInstance, codeGenOutputChannel);
 
     // 2. 注册提供者
     const codeLensProvider = new MyBatisCodeLensProvider(indexerInstance);
@@ -157,7 +162,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('mybatisToolkit.addConnection', async () => {
-            const config = await ConnectionFormPanel.createOrShow(context.extensionUri, dbServiceInstance, 'add');
+            const config = await ConnectionFormPanel.createOrShow(context.extensionUri, dbServiceInstance, connectionOutputChannel, 'add');
             if (config) {
                 await dbServiceInstance.addConnection(config);
                 vscode.window.showInformationMessage(`连接 "${config.name}" 已添加`);
@@ -165,7 +170,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('mybatisToolkit.editConnection', async (item: ConnectionItem) => {
             if (!item || !item.config) return;
-            const config = await ConnectionFormPanel.createOrShow(context.extensionUri, dbServiceInstance, 'edit', item.config);
+            const config = await ConnectionFormPanel.createOrShow(context.extensionUri, dbServiceInstance, connectionOutputChannel, 'edit', item.config);
             if (config) {
                 await dbServiceInstance.updateConnection(config);
                 if (item.isActive) {
@@ -411,4 +416,6 @@ export async function deactivate() {
     await dbServiceInstance?.dispose();
     indexerInstance?.dispose();
     ProjectIndexer.destroyInstance();
+    connectionOutputChannel?.dispose();
+    codeGenOutputChannel?.dispose();
 }

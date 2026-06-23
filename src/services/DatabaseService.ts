@@ -237,13 +237,20 @@ export class DatabaseService {
     }
 
     public async testConnection(config: ConnectionConfig): Promise<{ success: boolean; message: string }> {
+        this.outputChannel.appendLine(`[测试连接] 开始: 类型=${config.type}, 主机=${config.host}, 端口=${config.port}, 数据库=${config.database}, 用户=${config.user}, 驱动路径=${config.driverPath || '默认'}`);
         let adapter: IDbAdapter | undefined;
+        const start = Date.now();
         try {
             adapter = createDbAdapter(config);
+            this.outputChannel.appendLine(`[测试连接] 适配器已创建: ${adapter.constructor.name}`);
             await adapter.connect(config);
+            const elapsed = Date.now() - start;
+            this.outputChannel.appendLine(`[测试连接] 成功 (${elapsed}ms): ${config.host}:${config.port}/${config.database}`);
             await adapter.disconnect();
             return { success: true, message: `连接成功 (${config.host}:${config.port}/${config.database})` };
         } catch (error: any) {
+            const elapsed = Date.now() - start;
+            this.outputChannel.appendLine(`[测试连接] 失败 (${elapsed}ms): ${error.message || String(error)}`);
             if (adapter) {
                 try { await adapter.disconnect(); } catch { /* ignore cleanup errors */ }
             }
