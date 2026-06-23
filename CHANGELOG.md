@@ -13,6 +13,16 @@
 - **资源释放**：`deactivate` 中现在正确释放数据库连接、索引器、SQL 验证器与文件监听器，避免扩展重载/卸载时资源泄漏。
 - **文件监听**：`ProjectIndexer` 维护 watcher 列表并提供 `dispose()`，重复激活不会累加监听器。
 - **未支持数据库类型**：`createDbAdapter` 对 SQL Server / SQLite / DB2 / H2 等未实现类型直接抛出明确错误，不再误用 MySQL 适配器执行。
+
+### 新增
+
+- **多数据库适配器**：新增 SQL Server、SQLite、DB2、H2 数据库连接与元数据查询适配器。
+  - SQL Server 使用 `mssql`（可选依赖），通过 `sys.tables` / `sys.columns` 查询表名、注释、列类型、主键、默认值。
+  - SQLite 使用 `better-sqlite3`（可选依赖），基于 `sqlite_master` 与 `PRAGMA table_info` 获取元数据。
+  - DB2 使用 `ibm_db`（可选依赖），通过 `SYSCAT.TABLES` / `SYSCAT.COLUMNS` 获取元数据。
+  - H2 使用 `jdbc`（可选依赖）+ H2 JDBC jar，通过 `INFORMATION_SCHEMA` 获取元数据；连接配置需指定 `options.jarPath`。
+- **可选数据库驱动 external**：`webpack.config.js` 中将上述可选驱动标记为 external，避免打包进 `extension.js`，按需动态加载。
+
 - **端口校验**：添加/编辑连接时校验端口为 1–65535 有效数字，避免 `NaN` 持久化到配置。
 - **同步 I/O 异步化**：「为方法生成 XML」命令使用 `fs.promises` 读写文件，避免阻塞扩展宿主。
 - **密码安全**：数据库密码迁移到 VS Code `SecretStorage`，不再明文写入 `settings.json`。

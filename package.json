@@ -518,6 +518,10 @@
     "pg": "^8.13.0"
   },
   "optionalDependencies": {
-    "oracledb": "^6.7.0"
+    "oracledb": "^6.7.0",
+    "mssql": "^11.0.1",
+    "better-sqlite3": "^12.0.0",
+    "ibm_db": "^3.2.4",
+    "jdbc": "^0.7.6"
   }
 }
