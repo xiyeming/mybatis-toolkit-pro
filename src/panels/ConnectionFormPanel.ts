@@ -35,12 +35,17 @@ export class ConnectionFormPanel {
         });
         panel.webview.html = instance.buildHtml(mode, existing);
         panel.webview.onDidReceiveMessage((msg: any) => {
-            if (msg.type === 'submit') {
-                instance.handleSubmit(msg.payload);
-            } else if (msg.type === 'cancel') {
-                instance.handleCancel();
-            } else if (msg.type === 'testConnection') {
-                instance.handleTestConnection(msg.payload);
+            try {
+                if (msg.type === 'submit') {
+                    instance.handleSubmit(msg.payload);
+                } else if (msg.type === 'cancel') {
+                    instance.handleCancel();
+                } else if (msg.type === 'testConnection') {
+                    instance.handleTestConnection(msg.payload);
+                }
+            } catch (error) {
+                console.error('ConnectionFormPanel message handler error:', error);
+                instance.panel?.webview.postMessage({ type: 'testResult', success: false, message: `处理失败: ${error}` });
             }
         });
         return instance;
@@ -176,23 +181,23 @@ export class ConnectionFormPanel {
                 </div>
                 <div class="field">
                     <label for="name">连接名称</label>
-                    <input id="name" name="name" type="text" value="${escapeHtml(data.name || '')}" placeholder="例如：生产库" required />
+                    <input id="name" name="name" type="text" value="${escapeHtml(data.name || '')}" placeholder="例如：生产库" />
                 </div>
             </div>
             <div class="row">
                 <div class="field">
                     <label for="host">主机</label>
-                    <input id="host" name="host" type="text" value="${escapeHtml(data.host)}" placeholder="localhost" required />
+                    <input id="host" name="host" type="text" value="${escapeHtml(data.host)}" placeholder="localhost" />
                 </div>
                 <div class="field">
                     <label for="port">端口</label>
-                    <input id="port" name="port" type="number" value="${data.port}" placeholder="3306" required />
+                    <input id="port" name="port" type="number" value="${data.port}" placeholder="3306" />
                 </div>
             </div>
             <div class="row">
                 <div class="field">
                     <label for="user">用户名</label>
-                    <input id="user" name="user" type="text" value="${escapeHtml(data.user)}" placeholder="root" required />
+                    <input id="user" name="user" type="text" value="${escapeHtml(data.user)}" placeholder="root" />
                 </div>
                 <div class="field">
                     <label for="password">密码</label>
@@ -207,7 +212,7 @@ export class ConnectionFormPanel {
             </div>
             <div class="field">
                 <label for="database">数据库 / Schema</label>
-                <input id="database" name="database" type="text" value="${escapeHtml(data.database)}" placeholder="数据库名" required />
+                <input id="database" name="database" type="text" value="${escapeHtml(data.database)}" placeholder="数据库名" />
             </div>
             <div class="actions">
                 <button type="button" class="btn-secondary" id="btnTest">测试连接</button>
@@ -225,6 +230,11 @@ export class ConnectionFormPanel {
         resultDiv.style.cssText = 'margin-top:10px;padding:8px;border-radius:4px;display:none;font-size:12px;';
         form.parentNode.insertBefore(resultDiv, form.nextSibling);
 
+        const errorDiv = document.createElement('div');
+        errorDiv.id = 'formError';
+        errorDiv.style.cssText = 'margin-top:10px;padding:8px;border-radius:4px;display:none;font-size:12px;background:rgba(244, 135, 113, 0.2);color:#f48771;';
+        form.parentNode.insertBefore(errorDiv, resultDiv.nextSibling);
+
         btnCancel.addEventListener('click', () => {
             vscode.postMessage({ type: 'cancel' });
         });
@@ -234,12 +244,13 @@ export class ConnectionFormPanel {
                 type: fd.get('type'),
                 name: fd.get('name'),
                 host: fd.get('host'),
-                port: parseInt(fd.get('port'), 10),
+                port: parseInt(fd.get('port'), 10) || 3306,
                 user: fd.get('user'),
                 password: fd.get('password'),
                 database: fd.get('database'),
                 driverPath: fd.get('driverPath')
             };
+            errorDiv.style.display = 'none';
             resultDiv.style.display = 'none';
             btnTest.disabled = true;
             btnTest.textContent = '测试中...';
@@ -252,7 +263,7 @@ export class ConnectionFormPanel {
                 type: fd.get('type'),
                 name: fd.get('name'),
                 host: fd.get('host'),
-                port: parseInt(fd.get('port'), 10),
+                port: parseInt(fd.get('port'), 10) || 3306,
                 user: fd.get('user'),
                 password: fd.get('password'),
                 database: fd.get('database'),
@@ -269,6 +280,10 @@ export class ConnectionFormPanel {
                 resultDiv.style.background = msg.success ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 135, 113, 0.2)';
                 resultDiv.style.color = msg.success ? '#4caf50' : '#f48771';
                 resultDiv.textContent = msg.message;
+            } else if (msg.type === 'formError') {
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = msg.message;
+                setTimeout(() => { errorDiv.style.display = 'none'; }, 3000);
             }
         });
     </script>
@@ -277,19 +292,21 @@ export class ConnectionFormPanel {
     }
 
     private handleSubmit(payload: any): void {
-        if (!payload || !payload.host || !payload.database) {
-            vscode.window.showWarningMessage('请填写必填字段（主机、数据库名）');
+        const host = (payload?.host || '').trim();
+        const database = (payload?.database || '').trim();
+        if (!host || !database) {
+            this.panel?.webview.postMessage({ type: 'formError', message: '请填写必填字段（主机、数据库名）' });
             return;
         }
         const config: ConnectionConfig = {
             id: this.editId || Date.now().toString(),
             type: payload.type,
-            name: payload.name || payload.database,
-            host: payload.host,
+            name: (payload.name || database).trim(),
+            host,
             port: Number(payload.port) || 3306,
-            user: payload.user,
+            user: (payload.user || '').trim(),
             password: payload.password,
-            database: payload.database,
+            database,
             driverPath: payload.driverPath || undefined
         };
         if (this.resolvePromise) {
@@ -299,23 +316,29 @@ export class ConnectionFormPanel {
     }
 
     private async handleTestConnection(payload: any): Promise<void> {
-        if (!payload || !payload.host || !payload.database) {
+        const host = (payload?.host || '').trim();
+        const database = (payload?.database || '').trim();
+        if (!host || !database) {
             this.panel?.webview.postMessage({ type: 'testResult', success: false, message: '请填写必填字段（主机、数据库名）' });
             return;
         }
-        const config: ConnectionConfig = {
-            id: this.editId || 'test',
-            type: payload.type,
-            name: payload.name || payload.database,
-            host: payload.host,
-            port: Number(payload.port) || 3306,
-            user: payload.user,
-            password: payload.password,
-            database: payload.database,
-            driverPath: payload.driverPath || undefined
-        };
-        const result = await this.dbService.testConnection(config);
-        this.panel?.webview.postMessage({ type: 'testResult', success: result.success, message: result.message });
+        try {
+            const config: ConnectionConfig = {
+                id: this.editId || 'test',
+                type: payload.type,
+                name: (payload.name || database).trim(),
+                host,
+                port: Number(payload.port) || 3306,
+                user: (payload.user || '').trim(),
+                password: payload.password,
+                database,
+                driverPath: payload.driverPath || undefined
+            };
+            const result = await this.dbService.testConnection(config);
+            this.panel?.webview.postMessage({ type: 'testResult', success: result.success, message: result.message });
+        } catch (error: any) {
+            this.panel?.webview.postMessage({ type: 'testResult', success: false, message: error.message || String(error) });
+        }
     }
 
     private handleCancel(): void {

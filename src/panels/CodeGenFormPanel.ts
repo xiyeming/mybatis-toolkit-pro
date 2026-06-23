@@ -42,10 +42,17 @@ export class CodeGenFormPanel {
         });
         panel.webview.html = instance.buildHtml(tableName, existing);
         panel.webview.onDidReceiveMessage((msg: any) => {
-            if (msg.type === 'submit') {
-                instance.handleSubmit(msg.payload);
-            } else if (msg.type === 'cancel') {
-                instance.handleCancel();
+            try {
+                if (msg.type === 'submit') {
+                    instance.handleSubmit(msg.payload);
+                } else if (msg.type === 'cancel') {
+                    instance.handleCancel();
+                } else if (msg.type === 'formError') {
+                    vscode.window.showWarningMessage(msg.message);
+                }
+            } catch (error) {
+                console.error('CodeGenFormPanel message handler error:', error);
+                vscode.window.showErrorMessage(`操作失败: ${error}`);
             }
         });
         return instance;
@@ -157,7 +164,7 @@ export class CodeGenFormPanel {
         <form id="codeGenForm">
             <div class="field">
                 <label for="basePackage">基础包名</label>
-                <input id="basePackage" name="basePackage" type="text" value="${escapeHtml(data.basePackage)}" placeholder="com.example.demo" required />
+                <input id="basePackage" name="basePackage" type="text" value="${escapeHtml(data.basePackage)}" placeholder="com.example.demo" />
                 <div class="hint">Entity/Mapper 将生成在 basePackage.{entity|mapper} 下</div>
             </div>
             <div class="field">
@@ -168,11 +175,8 @@ export class CodeGenFormPanel {
             </div>
             <div class="field">
                 <label for="workspaceRoot">生成目录（项目根目录）</label>
-                <select id="workspaceRoot" name="workspaceRoot">
-                    <option value="">-- 请选择 --</option>
-                    ${workspaceOptions}
-                </select>
-                <div class="hint">Entity/Mapper 将生成在 src/main/java，XML 生成在 src/main/resources</div>
+                <input id="workspaceRoot" name="workspaceRoot" type="text" value="${escapeHtml(defaultRoot)}" placeholder="/path/to/project" />
+                <div class="hint">Entity/Mapper 将生成在 src/main/java，XML 生成在 src/main/resources。可直接输入路径或使用工作区文件夹路径。</div>
             </div>
             <div class="actions">
                 <button type="button" class="btn-secondary" id="btnCancel">取消</button>
@@ -188,14 +192,14 @@ export class CodeGenFormPanel {
         const form = document.getElementById('codeGenForm');
         const basePackageInput = document.getElementById('basePackage');
         const styleSelect = document.getElementById('style');
-        const workspaceSelect = document.getElementById('workspaceRoot');
+        const workspaceInput = document.getElementById('workspaceRoot');
         const preview = document.getElementById('preview');
         const previewContent = document.getElementById('previewContent');
 
         function updatePreview() {
             const pkg = basePackageInput.value.trim();
             const style = styleSelect.value;
-            const root = workspaceSelect.value;
+            const root = workspaceInput.value.trim();
             if (!pkg || !root) {
                 preview.style.display = 'none';
                 return;
@@ -214,7 +218,7 @@ export class CodeGenFormPanel {
 
         basePackageInput.addEventListener('input', updatePreview);
         styleSelect.addEventListener('change', updatePreview);
-        workspaceSelect.addEventListener('change', updatePreview);
+        workspaceInput.addEventListener('input', updatePreview);
         updatePreview();
 
         document.getElementById('btnCancel').addEventListener('click', () => {
@@ -224,12 +228,12 @@ export class CodeGenFormPanel {
             e.preventDefault();
             const fd = new FormData(form);
             const payload = {
-                basePackage: fd.get('basePackage'),
+                basePackage: (fd.get('basePackage') || '').trim(),
                 style: fd.get('style'),
-                workspaceRoot: fd.get('workspaceRoot')
+                workspaceRoot: (fd.get('workspaceRoot') || '').trim()
             };
             if (!payload.basePackage || !payload.workspaceRoot) {
-                alert('请填写基础包名并选择生成目录');
+                vscode.postMessage({ type: 'formError', message: '请填写基础包名并选择生成目录' });
                 return;
             }
             vscode.postMessage({ type: 'submit', payload });
@@ -244,15 +248,17 @@ export class CodeGenFormPanel {
     }
 
     private handleSubmit(payload: any): void {
-        if (!payload || !payload.basePackage || !payload.workspaceRoot) {
-            vscode.window.showWarningMessage('请填写基础包名并选择生成目录');
+        const basePackage = (payload?.basePackage || '').trim();
+        const workspaceRoot = (payload?.workspaceRoot || '').trim();
+        if (!basePackage || !workspaceRoot) {
+            this.panel?.webview.postMessage({ type: 'formError', message: '请填写基础包名并输入生成目录' });
             return;
         }
         if (this.resolvePromise) {
             this.resolvePromise({
-                basePackage: payload.basePackage.trim(),
+                basePackage,
                 style: payload.style,
-                workspaceRoot: payload.workspaceRoot
+                workspaceRoot
             });
         }
         this.panel?.dispose();
