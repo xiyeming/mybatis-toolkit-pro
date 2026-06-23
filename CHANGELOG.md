@@ -6,6 +6,21 @@
 
 ---
 
+## [1.4.0] - 2026-06-23
+
+### 优化
+
+- **设置 UI 分组**：引入 `configurationGroups`，按「数据库、验证、索引与导航、性能、查询结果、代码生成、格式化、高亮」分组展示配置项，设置界面更清晰。
+- **配置键名统一**：
+  - `mybatisToolkit.defaultDatabaseType` → `mybatisToolkit.database.defaultType`
+  - `mybatisToolkit.codeGen.{entity,mapper,xml,service}DirName` → `mybatisToolkit.codeGen.dirs.{entity,mapper,xml,service}`
+- **废弃配置标注**：单连接配置（`database.host/port/user/password/database`）添加 `deprecationMessage`，引导用户使用侧栏「添加连接」。
+- **数组配置 UI 引导**：`connections` 与 `fillFields` 的 `markdownDescription` 补充侧栏/生成向导管理建议。
+- **resource 级配置**：`formatting.indentSize` 与 `highlights.*` 颜色配置添加 `"scope": "resource"`，支持工作区级覆盖。
+- **所有配置项补充 `group`**：设置 UI 中按分组折叠/展开。
+
+---
+
 ## [1.3.0] - 2026-06-23
 
 ### 新增

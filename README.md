@@ -48,7 +48,7 @@
 - **方言**：支持 MySQL、PostgreSQL、Oracle、SQL Server、SQLite、DB2、H2、MariaDB。
 - **高亮**：关键字、系统函数、MyBatis 参数；方言特有关键字（如 PostgreSQL 的 `RETURNING`、`ILIKE`）。
 - **格式化**：按方言处理引号与缩进，支持子查询、`UNION`、`CASE WHEN` 等；保留 XML 与 SQL 注释。
-- **默认方言**：设置 `mybatisToolkit.defaultDatabaseType`；若已连接数据库，优先使用当前连接类型。
+- **默认方言**：设置 `mybatisToolkit.database.defaultType`；若已连接数据库，优先使用当前连接类型。
 
 ---
 

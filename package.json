@@ -2,7 +2,7 @@
   "name": "mybatis-toolkit-pro",
   "displayName": "MyBatis Toolkit Pro",
   "description": "专业的 MyBatis 开发工具包",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "publisher": "xiyeming",
   "license": "MIT",
   "keywords": [
@@ -216,8 +216,18 @@
       "type": "object",
       "title": "MyBatis Toolkit Pro",
       "description": "以下所有配置项均可在「设置」界面中修改：打开设置 (Ctrl+,) 搜索 MyBatis 或 mybatisToolkit 即可。",
+      "configurationGroups": [
+        { "id": "database", "title": "数据库" },
+        { "id": "validation", "title": "验证" },
+        { "id": "navigation", "title": "索引与导航" },
+        { "id": "performance", "title": "性能" },
+        { "id": "queryResult", "title": "查询结果" },
+        { "id": "codeGen", "title": "代码生成" },
+        { "id": "formatting", "title": "格式化" },
+        { "id": "highlights", "title": "高亮" }
+      ],
       "order": [
-        "mybatisToolkit.defaultDatabaseType",
+        "mybatisToolkit.database.defaultType",
         "mybatisToolkit.connections",
         "mybatisToolkit.database.host",
         "mybatisToolkit.database.port",
@@ -236,10 +246,10 @@
         "mybatisToolkit.codeGen.mybatisPlus.fillFields",
         "mybatisToolkit.codeGen.mybatisPlus.logicDeleteField",
         "mybatisToolkit.codeGen.mybatisPlus.idType",
-        "mybatisToolkit.codeGen.entityDirName",
-        "mybatisToolkit.codeGen.mapperDirName",
-        "mybatisToolkit.codeGen.xmlDirName",
-        "mybatisToolkit.codeGen.serviceDirName",
+        "mybatisToolkit.codeGen.dirs.entity",
+        "mybatisToolkit.codeGen.dirs.mapper",
+        "mybatisToolkit.codeGen.dirs.xml",
+        "mybatisToolkit.codeGen.dirs.service",
         "mybatisToolkit.formatting.indentSize",
         "mybatisToolkit.highlights.tableNameColor",
         "mybatisToolkit.highlights.keywordColor",
@@ -247,8 +257,9 @@
         "mybatisToolkit.highlights.paramColor"
       ],
       "properties": {
-        "mybatisToolkit.defaultDatabaseType": {
+        "mybatisToolkit.database.defaultType": {
           "type": "string",
+          "group": "database",
           "enum": [
             "MySQL",
             "PostgreSQL",
@@ -265,9 +276,10 @@
         },
         "mybatisToolkit.connections": {
           "type": "array",
+          "group": "database",
           "default": [],
-          "description": "数据库连接列表",
-          "markdownDescription": "在 **MyBatis 侧边栏** 中管理的多数据源。每项包含：名称、类型、主机、端口、用户、密码、数据库。密码由扩展安全存储。",
+          "description": "数据库连接列表（建议在侧栏管理）",
+          "markdownDescription": "在 **MyBatis 侧边栏** 中管理的多数据源。每项包含：名称、类型、主机、端口、用户、密码、数据库。密码由扩展安全存储。推荐使用侧栏「添加连接」进行可视化管理。",
           "items": {
             "type": "object",
             "properties": {
@@ -289,38 +301,49 @@
         },
         "mybatisToolkit.database.host": {
           "type": "string",
+          "group": "database",
           "default": "localhost",
-          "description": "默认连接：主机",
+          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
+          "description": "默认连接：主机（废弃）",
           "markdownDescription": "未配置多连接时使用的 **单连接** 主机。建议在侧栏「添加连接」后使用 `connections`。"
         },
         "mybatisToolkit.database.port": {
           "type": "number",
+          "group": "database",
           "default": 3306,
-          "description": "默认连接：端口",
+          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
+          "description": "默认连接：端口（废弃）",
           "markdownDescription": "数据库端口，如 MySQL 3306、PostgreSQL 5432。",
           "minimum": 1,
           "maximum": 65535
         },
         "mybatisToolkit.database.user": {
           "type": "string",
+          "group": "database",
           "default": "root",
-          "description": "默认连接：用户名",
+          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
+          "description": "默认连接：用户名（废弃）",
           "markdownDescription": "数据库登录用户名。"
         },
         "mybatisToolkit.database.password": {
           "type": "string",
+          "group": "database",
           "default": "",
-          "description": "默认连接：密码",
+          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
+          "description": "默认连接：密码（废弃）",
           "markdownDescription": "数据库登录密码。多连接时建议在侧栏添加连接，密码由扩展安全存储。"
         },
         "mybatisToolkit.database.database": {
           "type": "string",
+          "group": "database",
           "default": "",
-          "description": "默认连接：数据库名",
+          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
+          "description": "默认连接：数据库名（废弃）",
           "markdownDescription": "要连接的数据库 / Schema 名称。"
         },
         "mybatisToolkit.database.connectionLimit": {
           "type": "number",
+          "group": "database",
           "default": 10,
           "description": "连接池大小",
           "markdownDescription": "数据库连接池最大连接数。",
@@ -329,19 +352,22 @@
         },
         "mybatisToolkit.validation.enable": {
           "type": "boolean",
+          "group": "validation",
           "default": true,
           "description": "启用 SQL 与映射验证",
           "markdownDescription": "在 XML Mapper 中实时校验：表/列是否存在、resultMap/resultType 与 Java 属性是否一致。"
         },
         "mybatisToolkit.navigation.exclude": {
           "type": "array",
+          "group": "navigation",
           "default": ["target", "build", "bin", "out", "dist", "node_modules", ".git", ".idea", ".vscode", ".settings", ".project", ".classpath", ".factorypath", ".metadata"],
           "description": "索引排除目录",
-          "markdownDescription": "扫描 Java/XML 时跳过的文件夹名（不含路径），用于减少无关代码参与 Mapper 索引与跳转。",
+          "markdownDescription": "扫描 Java/XML 时跳过的文件夹名（不含路径）。已包含主流 IDE 目录（.idea、.vscode 等）与构建输出目录。项目根目录的 `.gitignore` 中的目录规则也会自动生效。",
           "items": { "type": "string" }
         },
         "mybatisToolkit.performance.indexParseConcurrency": {
           "type": "number",
+          "group": "performance",
           "default": 20,
           "description": "索引并发数",
           "markdownDescription": "同时解析的 Java/XML 文件数量。大仓库可适当调低以降低 CPU 峰值；高性能机器可调高以加快索引。",
@@ -350,6 +376,7 @@
         },
         "mybatisToolkit.performance.indexDebounceMs": {
           "type": "number",
+          "group": "performance",
           "default": 300,
           "description": "文件变更防抖（毫秒）",
           "markdownDescription": "文件保存后延迟多少毫秒再触发索引更新与 CodeLens 刷新。可减少频繁保存时的重复计算。",
@@ -358,6 +385,7 @@
         },
         "mybatisToolkit.performance.validationDebounceMs": {
           "type": "number",
+          "group": "performance",
           "default": 400,
           "description": "诊断防抖（毫秒）",
           "markdownDescription": "编辑 XML 后延迟多少毫秒再运行 SQL 诊断。",
@@ -366,27 +394,31 @@
         },
         "mybatisToolkit.queryResult.datetimeFormat": {
           "type": "string",
+          "group": "queryResult",
           "default": "%Y-%m-%d %H:%i:%s",
           "description": "查询结果：日期时间格式",
           "markdownDescription": "返回结果中日期时间列的显示格式。占位符：`%Y` 年 `%m` 月 `%d` 日 `%H` 时 `%i` 分 `%s` 秒。默认 `%Y-%m-%d %H:%i:%s`。"
         },
         "mybatisToolkit.queryResult.dateFormat": {
           "type": "string",
+          "group": "queryResult",
           "default": "%Y-%m-%d",
           "description": "查询结果：仅日期格式",
           "markdownDescription": "仅日期（无时间）时的显示格式。默认 `%Y-%m-%d`。"
         },
         "mybatisToolkit.queryResult.timeFormat": {
           "type": "string",
+          "group": "queryResult",
           "default": "%H:%i:%s",
           "description": "查询结果：仅时间格式",
           "markdownDescription": "仅时间（无日期）时的显示格式。默认 `%H:%i:%s`。"
         },
         "mybatisToolkit.codeGen.mybatisPlus.fillFields": {
           "type": "array",
+          "group": "codeGen",
           "default": [],
-          "description": "MyBatis-Plus 自动填充字段（在设置 UI 中可添加/编辑，生成 Entity 时生效）",
-          "markdownDescription": "选择 **MyBatis-Plus** 风格生成时，为指定列添加 `@TableField(value = \"列名\", fill = FieldFill.INSERT)` 或 `INSERT_UPDATE`。在设置中点击「添加项」可新增一行，每项填写 **column**（数据库列名，如 create_time）和 **fill**（INSERT 仅插入时填充，INSERT_UPDATE 插入与更新时填充）。",
+          "description": "MyBatis-Plus 自动填充字段（建议在生成代码时配置）",
+          "markdownDescription": "选择 **MyBatis-Plus** 风格生成时，为指定列添加 `@TableField(value = \"列名\", fill = FieldFill.INSERT)` 或 `INSERT_UPDATE`。推荐在生成代码前通过侧栏/代码生成向导配置。",
           "items": {
             "type": "object",
             "required": ["column", "fill"],
@@ -410,12 +442,14 @@
         },
         "mybatisToolkit.codeGen.mybatisPlus.logicDeleteField": {
           "type": "string",
+          "group": "codeGen",
           "default": "",
-          "description": "MyBatis-Plus 逻辑删除字段（生成 Entity 时生效，下次生成会回显）",
+          "description": "MyBatis-Plus 逻辑删除字段",
           "markdownDescription": "选择 MyBatis-Plus 风格时，指定逻辑删除列名（如 `del_flag`），生成时添加 `@TableLogic`。"
         },
         "mybatisToolkit.codeGen.mybatisPlus.idType": {
           "type": "string",
+          "group": "codeGen",
           "default": "AUTO",
           "enum": ["AUTO", "ASSIGN_ID", "ASSIGN_UUID", "INPUT", "NONE"],
           "enumDescriptions": [
@@ -428,32 +462,38 @@
           "description": "MyBatis-Plus 主键生成策略（生成 Entity 时 @TableId 的 type）",
           "markdownDescription": "生成 MyBatis-Plus Entity 时主键字段的 `@TableId(type = IdType.xxx)`。**AUTO** 数据库自增；**ASSIGN_ID** 雪花 Long；**ASSIGN_UUID** UUID；**INPUT** 用户输入；**NONE** 无。"
         },
-        "mybatisToolkit.codeGen.entityDirName": {
+        "mybatisToolkit.codeGen.dirs.entity": {
           "type": "string",
+          "group": "codeGen",
           "default": "entity",
           "description": "生成代码：Entity 目录名（包最后一段）",
-          "markdownDescription": "Entity 类所在包的最后一段目录名，如 `entity`、`po`、`domain`。生成路径：`basePackage.entityDirName`。"
+          "markdownDescription": "Entity 类所在包的最后一段目录名，如 `entity`、`po`、`domain`。生成路径：`basePackage.dirs.entity`。"
         },
-        "mybatisToolkit.codeGen.mapperDirName": {
+        "mybatisToolkit.codeGen.dirs.mapper": {
           "type": "string",
+          "group": "codeGen",
           "default": "mapper",
           "description": "生成代码：Mapper/DAO 目录名（包最后一段）",
-          "markdownDescription": "Mapper 接口所在包的最后一段目录名，如 `mapper`、`dao`。生成路径：`basePackage.mapperDirName`。"
+          "markdownDescription": "Mapper 接口所在包的最后一段目录名，如 `mapper`、`dao`。生成路径：`basePackage.dirs.mapper`。"
         },
-        "mybatisToolkit.codeGen.xmlDirName": {
+        "mybatisToolkit.codeGen.dirs.xml": {
           "type": "string",
+          "group": "codeGen",
           "default": "mapper",
           "description": "生成代码：Mapper XML 目录名（resources 下）",
           "markdownDescription": "Mapper XML 文件在 `src/main/resources` 下的目录名，如 `mapper`、`mappers`、`xml`。"
         },
-        "mybatisToolkit.codeGen.serviceDirName": {
+        "mybatisToolkit.codeGen.dirs.service": {
           "type": "string",
+          "group": "codeGen",
           "default": "service",
           "description": "生成代码：Service 目录名（预留）",
           "markdownDescription": "Service 类所在包的最后一段目录名，如 `service`、`services`。预留供后续生成 Service 层使用。"
         },
         "mybatisToolkit.formatting.indentSize": {
           "type": "number",
+          "group": "formatting",
+          "scope": "resource",
           "default": 4,
           "description": "SQL 格式化缩进空格数",
           "markdownDescription": "格式化 XML 内 SQL 时每级缩进的空格数。",
@@ -462,6 +502,8 @@
         },
         "mybatisToolkit.highlights.tableNameColor": {
           "type": "string",
+          "group": "highlights",
+          "scope": "resource",
           "format": "color-hex",
           "default": "#FFAB70",
           "description": "表名高亮颜色（如 FROM 后）",
@@ -469,6 +511,8 @@
         },
         "mybatisToolkit.highlights.keywordColor": {
           "type": "string",
+          "group": "highlights",
+          "scope": "resource",
           "format": "color-hex",
           "default": "#C586C0",
           "description": "SQL 关键字颜色（SELECT、WHERE 等）",
@@ -476,6 +520,8 @@
         },
         "mybatisToolkit.highlights.functionColor": {
           "type": "string",
+          "group": "highlights",
+          "scope": "resource",
           "format": "color-hex",
           "default": "#DCDCAA",
           "description": "SQL 函数颜色（COUNT、MAX 等）",
@@ -483,6 +529,8 @@
         },
         "mybatisToolkit.highlights.paramColor": {
           "type": "string",
+          "group": "highlights",
+          "scope": "resource",
           "format": "color-hex",
           "default": "#9CDCFE",
           "description": "MyBatis 参数颜色（#{...}、${...}）",

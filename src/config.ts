@@ -15,7 +15,7 @@ export function getConfig(): vscode.WorkspaceConfiguration {
 // ---------- 数据库与连接 ----------
 
 export function getDefaultDatabaseType(): string {
-    return getConfig().get<string>('defaultDatabaseType', 'MySQL');
+    return getConfig().get<string>('database.defaultType', 'MySQL');
 }
 
 export function getConnections(): ConnectionConfig[] {
@@ -150,9 +150,9 @@ function sanitizeDirName(name: string, defaultVal: string): string {
 export function getCodeGenDirNames(): { entityDirName: string; mapperDirName: string; xmlDirName: string; serviceDirName: string } {
     const cfg = getConfig();
     return {
-        entityDirName: sanitizeDirName(cfg.get<string>('codeGen.entityDirName', 'entity'), 'entity'),
-        mapperDirName: sanitizeDirName(cfg.get<string>('codeGen.mapperDirName', 'mapper'), 'mapper'),
-        xmlDirName: sanitizeDirName(cfg.get<string>('codeGen.xmlDirName', 'mapper'), 'mapper'),
-        serviceDirName: sanitizeDirName(cfg.get<string>('codeGen.serviceDirName', 'service'), 'service')
+        entityDirName: sanitizeDirName(cfg.get<string>('codeGen.dirs.entity', 'entity'), 'entity'),
+        mapperDirName: sanitizeDirName(cfg.get<string>('codeGen.dirs.mapper', 'mapper'), 'mapper'),
+        xmlDirName: sanitizeDirName(cfg.get<string>('codeGen.dirs.xml', 'mapper'), 'mapper'),
+        serviceDirName: sanitizeDirName(cfg.get<string>('codeGen.dirs.service', 'service'), 'service')
     };
 }

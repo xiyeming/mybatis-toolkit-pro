@@ -48,7 +48,7 @@ Professional MyBatis development toolkit for VS Code. Improve productivity with 
 - **Dialects**: MySQL, PostgreSQL, Oracle, SQL Server, SQLite, DB2, H2, MariaDB.
 - **Highlighting**: Keywords, system functions, MyBatis parameters; dialect-specific keywords (e.g. PostgreSQL `RETURNING`, `ILIKE`).
 - **Formatting**: Dialect-aware quotes and indent; supports subqueries, `UNION`, `CASE WHEN`; preserves XML and SQL comments.
-- **Default dialect**: Set `mybatisToolkit.defaultDatabaseType`; if a database is connected, the current connection type is used first.
+- **Default dialect**: Set `mybatisToolkit.database.defaultType`; if a database is connected, the current connection type is used first.
 
 ---
 
