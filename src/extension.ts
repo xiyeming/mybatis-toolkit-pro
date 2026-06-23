@@ -13,6 +13,7 @@ import { PropertyDefinitionProvider } from './providers/PropertyDefinitionProvid
 import { SchemaDocumentProvider } from './providers/SchemaDocumentProvider';
 import { DatabaseTreeDataProvider, ConnectionItem, TableItem } from './providers/DatabaseTreeDataProvider';
 import { ConnectionFormPanel } from './panels/ConnectionFormPanel';
+import { CodeGenFormPanel } from './panels/CodeGenFormPanel';
 import { CodeGenerationService } from './services/CodeGenerationService';
 import { MethodSqlGenerator } from './services/MethodSqlGenerator';
 import { SqlHighlightingProvider, SQL_SEMANTIC_TOKEN_LEGEND } from './providers/SqlHighlightingProvider';
@@ -321,71 +322,11 @@ export async function activate(context: vscode.ExtensionContext) {
             if (!item || !item.tableName) {
                 return;
             }
-            const basePackage = await vscode.window.showInputBox({
-                prompt: '输入基础包名 (例如 com.example.demo)',
-                placeHolder: 'com.example.demo',
-                value: 'com.example.demo'
-            });
-            if (!basePackage) return;
+            const result = await CodeGenFormPanel.createOrShow(item.tableName);
+            if (!result) return;
 
-            const stylePick = await vscode.window.showQuickPick(
-                [
-                    { label: '$(library) MyBatis-Plus (默认)', description: 'Entity 注解 + BaseMapper，XML 仅 resultMap', style: 'mybatis-plus' as const },
-                    { label: '$(file-code) MyBatis', description: '传统 Mapper 接口 + 完整 XML CRUD', style: 'mybatis' as const }
-                ],
-                { placeHolder: '选择代码风格', ignoreFocusOut: true }
-            );
-            if (!stylePick) return;
-            const codeGenStyle = stylePick.style;
-
-            const roots = vscode.workspace.workspaceFolders;
-            const defaultRoot = roots?.[0]?.uri.fsPath ?? '';
-
-            interface FolderChoice extends vscode.QuickPickItem {
-                choiceType: 'workspace' | 'pick' | 'input';
-                root?: string;
-            }
-            const choices: FolderChoice[] = [];
-            if (roots && roots.length > 0) {
-                roots.forEach((f, i) => {
-                    choices.push({
-                        label: i === 0 ? `$(folder) ${f.name} (默认)` : `$(folder) ${f.name}`,
-                        description: f.uri.fsPath,
-                        choiceType: 'workspace',
-                        root: f.uri.fsPath
-                    });
-                });
-            }
-            choices.push({ label: '$(folder-opened) 选择其他文件夹...', choiceType: 'pick' });
-            choices.push({ label: '$(edit) 输入路径', description: defaultRoot || '输入项目根目录路径', choiceType: 'input' });
-
-            const chosen = await vscode.window.showQuickPick(choices, {
-                placeHolder: '选择或指定生成代码的基础目录（Entity/Mapper/XML 将生成在其下的 src/main/java、src/main/resources）',
-                ignoreFocusOut: true,
-                matchOnDescription: true
-            });
-            if (!chosen) return;
-
-            let workspaceRoot: string;
-            if (chosen.choiceType === 'workspace' && chosen.root) {
-                workspaceRoot = chosen.root;
-            } else if (chosen.choiceType === 'pick') {
-                const uris = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectMany: false, defaultUri: roots?.[0]?.uri });
-                if (!uris || uris.length === 0) return;
-                workspaceRoot = uris[0].fsPath;
-            } else if (chosen.choiceType === 'input') {
-                const input = await vscode.window.showInputBox({
-                    prompt: '输入基础路径（项目根目录）',
-                    value: defaultRoot,
-                    placeHolder: defaultRoot || '/path/to/project'
-                });
-                if (input === undefined || input.trim() === '') return;
-                workspaceRoot = input.trim();
-            } else {
-                return;
-            }
-
-            await codeGenService.generateCode(item.tableName, basePackage, workspaceRoot, codeGenStyle);
+            const { basePackage, style, workspaceRoot } = result;
+            await codeGenService.generateCode(item.tableName, basePackage, workspaceRoot, style);
         }),
         vscode.commands.registerCommand('mybatisToolkit.generateXmlForMethod', async (javaFileUriOrDoc: string | vscode.TextDocument, methodName: string, xmlFile: string) => {
             try {

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../types';
 import { createDbAdapter, IDbAdapter } from './db';
-import { getConnections as getConfigConnections, getLegacyDatabaseConfig } from '../config';
+import { getConnections as getConfigConnections } from '../config';
 import { LruCache } from '../utils/LruCache';
 import { DB_TABLE_CACHE_SIZE, DB_SCHEMA_CACHE_SIZE } from '../constants';
 
@@ -43,23 +43,6 @@ export class DatabaseService {
 
     private async loadConnections() {
         const rawConnections = getConfigConnections();
-        if (rawConnections.length === 0) {
-            const legacy = getLegacyDatabaseConfig();
-            if (legacy.host && legacy.database) {
-                await this.addConnection({
-                    id: 'default',
-                    name: 'Default',
-                    type: 'MySQL',
-                    host: legacy.host,
-                    port: legacy.port,
-                    user: legacy.user,
-                    password: legacy.password,
-                    database: legacy.database
-                });
-            }
-            return;
-        }
-
         this.connections = rawConnections.map(c => ({ ...c, password: c.password ?? '' }));
         // 从 SecretStorage 读取密码；若配置中仍有旧明文密码则迁移到 secrets 后从 settings 清除
         for (const c of this.connections) {

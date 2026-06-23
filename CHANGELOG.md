@@ -6,6 +6,20 @@
 
 ---
 
+## [1.6.0] - 2026-06-23
+
+### 优化
+
+- **删除设置 UI 单连接配置**：移除 `mybatisToolkit.database.host/port/user/password/database/connectionLimit` 等 legacy 配置项，设置界面中仅保留 `database.defaultType` 与 `connections`，引导用户通过侧栏管理连接。
+- **代码生成弹窗重构**：将原来的 3 个顺序弹窗（输入包名 → 选择风格 → 选择目录）合并为单个 WebView 弹窗，支持：
+  - 基础包名输入
+  - 代码风格下拉选择（MyBatis-Plus / MyBatis）
+  - 生成目录下拉选择（工作区文件夹 / 自定义路径）
+  - 实时预览生成路径与包名
+  - 取消 / 生成按钮
+
+---
+
 ## [1.5.0] - 2026-06-23
 
 ### 新增

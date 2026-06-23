@@ -2,7 +2,7 @@
   "name": "mybatis-toolkit-pro",
   "displayName": "MyBatis Toolkit Pro",
   "description": "专业的 MyBatis 开发工具包",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "publisher": "xiyeming",
   "license": "MIT",
   "keywords": [
@@ -229,12 +229,6 @@
       "order": [
         "mybatisToolkit.database.defaultType",
         "mybatisToolkit.connections",
-        "mybatisToolkit.database.host",
-        "mybatisToolkit.database.port",
-        "mybatisToolkit.database.user",
-        "mybatisToolkit.database.password",
-        "mybatisToolkit.database.database",
-        "mybatisToolkit.database.connectionLimit",
         "mybatisToolkit.validation.enable",
         "mybatisToolkit.navigation.exclude",
         "mybatisToolkit.performance.indexParseConcurrency",
@@ -306,57 +300,6 @@
               }
             }
           }
-        },
-        "mybatisToolkit.database.host": {
-          "type": "string",
-          "group": "database",
-          "default": "localhost",
-          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
-          "description": "默认连接：主机（废弃）",
-          "markdownDescription": "未配置多连接时使用的 **单连接** 主机。建议在侧栏「添加连接」后使用 `connections`。"
-        },
-        "mybatisToolkit.database.port": {
-          "type": "number",
-          "group": "database",
-          "default": 3306,
-          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
-          "description": "默认连接：端口（废弃）",
-          "markdownDescription": "数据库端口，如 MySQL 3306、PostgreSQL 5432。",
-          "minimum": 1,
-          "maximum": 65535
-        },
-        "mybatisToolkit.database.user": {
-          "type": "string",
-          "group": "database",
-          "default": "root",
-          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
-          "description": "默认连接：用户名（废弃）",
-          "markdownDescription": "数据库登录用户名。"
-        },
-        "mybatisToolkit.database.password": {
-          "type": "string",
-          "group": "database",
-          "default": "",
-          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
-          "description": "默认连接：密码（废弃）",
-          "markdownDescription": "数据库登录密码。多连接时建议在侧栏添加连接，密码由扩展安全存储。"
-        },
-        "mybatisToolkit.database.database": {
-          "type": "string",
-          "group": "database",
-          "default": "",
-          "deprecationMessage": "建议使用侧栏「添加连接」管理数据源，此单连接配置已废弃。",
-          "description": "默认连接：数据库名（废弃）",
-          "markdownDescription": "要连接的数据库 / Schema 名称。"
-        },
-        "mybatisToolkit.database.connectionLimit": {
-          "type": "number",
-          "group": "database",
-          "default": 10,
-          "description": "连接池大小",
-          "markdownDescription": "数据库连接池最大连接数。",
-          "minimum": 1,
-          "maximum": 100
         },
         "mybatisToolkit.validation.enable": {
           "type": "boolean",

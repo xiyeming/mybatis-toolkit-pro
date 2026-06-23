@@ -22,27 +22,6 @@ export function getConnections(): ConnectionConfig[] {
     return getConfig().get<ConnectionConfig[]>('connections', []);
 }
 
-export function getLegacyDatabaseConfig(): {
-    host: string;
-    port: number;
-    user: string;
-    password: string;
-    database: string;
-} {
-    const cfg = vscode.workspace.getConfiguration(`${SECTION}.database`);
-    return {
-        host: cfg.get<string>('host', 'localhost'),
-        port: cfg.get<number>('port', 3306),
-        user: cfg.get<string>('user', 'root'),
-        password: cfg.get<string>('password', ''),
-        database: cfg.get<string>('database', '')
-    };
-}
-
-export function getDatabaseConnectionLimit(): number {
-    return vscode.workspace.getConfiguration(`${SECTION}.database`).get<number>('connectionLimit', 10);
-}
-
 // ---------- 验证 ----------
 
 export function isValidationEnabled(): boolean {
