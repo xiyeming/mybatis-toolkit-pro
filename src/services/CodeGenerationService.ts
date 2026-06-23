@@ -30,6 +30,7 @@ export class CodeGenerationService {
             const dirNames = getCodeGenDirNames();
             const entityPackage = `${basePackage}.${dirNames.entityDirName}`;
             const mapperPackage = `${basePackage}.${dirNames.mapperDirName}`;
+            const servicePackage = `${basePackage}.${dirNames.serviceDirName}`;
 
             // 主键列：优先 PRI，否则首列，否则 'id'
             const idColumn = columns.find(c => c.Key === 'PRI')?.Field ?? columns[0]?.Field ?? 'id';
@@ -38,36 +39,47 @@ export class CodeGenerationService {
             const entityContent = this.generateEntity(table, className, entityPackage, columns, idColumn, idProperty, style);
             const mapperInterfaceContent = this.generateMapperInterface(className, entityPackage, mapperPackage, idColumn, idProperty, style);
             const mapperXmlContent = this.generateMapperXml(table, className, entityPackage, mapperPackage, columns, idColumn, idProperty, style);
+            const serviceContent = this.generateServiceInterface(className, entityPackage, servicePackage, style);
+            const serviceImplContent = this.generateServiceImpl(className, entityPackage, mapperPackage, servicePackage, style);
 
             const srcMainJava = path.join(workspaceRoot, 'src', 'main', 'java');
             const srcMainResources = path.join(workspaceRoot, 'src', 'main', 'resources');
 
             const entityDir = path.join(srcMainJava, ...entityPackage.split('.'));
             const mapperDir = path.join(srcMainJava, ...mapperPackage.split('.'));
+            const serviceDir = path.join(srcMainJava, ...servicePackage.split('.'));
+            const serviceImplDir = path.join(serviceDir, 'impl');
             const xmlDir = path.join(srcMainResources, dirNames.xmlDirName);
 
             await fs.promises.mkdir(entityDir, { recursive: true });
             await fs.promises.mkdir(mapperDir, { recursive: true });
+            await fs.promises.mkdir(serviceImplDir, { recursive: true });
             await fs.promises.mkdir(xmlDir, { recursive: true });
 
             const entityPath = path.join(entityDir, `${className}.java`);
             const mapperPath = path.join(mapperDir, `${className}Mapper.java`);
             const xmlPath = path.join(xmlDir, `${className}Mapper.xml`);
+            const servicePath = path.join(serviceDir, `${className}Service.java`);
+            const serviceImplPath = path.join(serviceImplDir, `${className}ServiceImpl.java`);
 
             await fs.promises.writeFile(entityPath, entityContent, 'utf8');
             await fs.promises.writeFile(mapperPath, mapperInterfaceContent, 'utf8');
             await fs.promises.writeFile(xmlPath, mapperXmlContent, 'utf8');
+            await fs.promises.writeFile(servicePath, serviceContent, 'utf8');
+            await fs.promises.writeFile(serviceImplPath, serviceImplContent, 'utf8');
 
             this.outputChannel.appendLine(`[代码生成] 文件已写入:`);
             this.outputChannel.appendLine(`  Entity:     ${entityPath}`);
             this.outputChannel.appendLine(`  Mapper:     ${mapperPath}`);
             this.outputChannel.appendLine(`  XML:        ${xmlPath}`);
+            this.outputChannel.appendLine(`  Service:    ${servicePath}`);
+            this.outputChannel.appendLine(`  ServiceImpl:${serviceImplPath}`);
 
             const doc = await vscode.workspace.openTextDocument(entityPath);
             await vscode.window.showTextDocument(doc);
             const elapsed = Date.now() - start;
             this.outputChannel.appendLine(`[代码生成] 完成: ${table} → ${className} (耗时 ${elapsed}ms)`);
-            vscode.window.showInformationMessage(`已为表 '${table}' 生成 Entity、Mapper 与 XML`);
+            vscode.window.showInformationMessage(`已为表 '${table}' 生成 Entity、Mapper、XML、Service、ServiceImpl`);
         } catch (e) {
             const elapsed = Date.now() - start;
             const msg = e instanceof Error ? e.message : String(e);
@@ -303,6 +315,111 @@ ${updateSetsSelective}
         from ${table}
     </select>
 </mapper>
+`;
+    }
+
+    private generateServiceInterface(className: string, entityPackage: string, servicePackage: string, style: CodeGenStyle): string {
+        if (style === 'mybatis-plus') {
+            return `package ${servicePackage};
+
+import ${entityPackage}.${className};
+import com.baomidou.mybatisplus.extension.service.IService;
+
+/**
+ * ${className} Service 接口
+ */
+public interface ${className}Service extends IService<${className}> {
+
+}
+`;
+        }
+        return `package ${servicePackage};
+
+import ${entityPackage}.${className};
+import java.util.List;
+
+/**
+ * ${className} Service 接口
+ */
+public interface ${className}Service {
+
+    int insert(${className} record);
+
+    int deleteById(Long id);
+
+    int updateById(${className} record);
+
+    ${className} selectById(Long id);
+
+    List<${className}> selectAll();
+}
+`;
+    }
+
+    private generateServiceImpl(className: string, entityPackage: string, mapperPackage: string, servicePackage: string, style: CodeGenStyle): string {
+        const mapperClass = `${className}Mapper`;
+        const mapperField = this.toCamelCase(className) + 'Mapper';
+        if (style === 'mybatis-plus') {
+            return `package ${servicePackage}.impl;
+
+import ${entityPackage}.${className};
+import ${mapperPackage}.${mapperClass};
+import ${servicePackage}.${className}Service;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.stereotype.Service;
+
+/**
+ * ${className} Service 实现类
+ */
+@Service
+public class ${className}ServiceImpl extends ServiceImpl<${mapperClass}, ${className}> implements ${className}Service {
+
+}
+`;
+        }
+        return `package ${servicePackage}.impl;
+
+import ${entityPackage}.${className};
+import ${mapperPackage}.${mapperClass};
+import ${servicePackage}.${className}Service;
+import org.springframework.stereotype.Service;
+import javax.annotation.Resource;
+import java.util.List;
+
+/**
+ * ${className} Service 实现类
+ */
+@Service
+public class ${className}ServiceImpl implements ${className}Service {
+
+    @Resource
+    private ${mapperClass} ${mapperField};
+
+    @Override
+    public int insert(${className} record) {
+        return ${mapperField}.insert(record);
+    }
+
+    @Override
+    public int deleteById(Long id) {
+        return ${mapperField}.deleteById(id);
+    }
+
+    @Override
+    public int updateById(${className} record) {
+        return ${mapperField}.updateById(record);
+    }
+
+    @Override
+    public ${className} selectById(Long id) {
+        return ${mapperField}.selectById(id);
+    }
+
+    @Override
+    public List<${className}> selectAll() {
+        return ${mapperField}.selectAll();
+    }
+}
 `;
     }
 
