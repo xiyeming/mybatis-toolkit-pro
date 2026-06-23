@@ -2,7 +2,7 @@
   "name": "mybatis-toolkit-pro",
   "displayName": "MyBatis Toolkit Pro",
   "description": "专业的 MyBatis 开发工具包",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "publisher": "xiyeming",
   "license": "MIT",
   "keywords": [
@@ -278,8 +278,8 @@
           "type": "array",
           "group": "database",
           "default": [],
-          "description": "数据库连接列表（建议在侧栏管理）",
-          "markdownDescription": "在 **MyBatis 侧边栏** 中管理的多数据源。每项包含：名称、类型、主机、端口、用户、密码、数据库。密码由扩展安全存储。推荐使用侧栏「添加连接」进行可视化管理。",
+          "description": "数据库连接列表（推荐在侧栏管理）",
+          "markdownDescription": "在 **MyBatis 侧边栏** 中管理的多数据源。每项包含：名称、类型、主机、端口、用户、数据库。**密码请在侧栏「添加连接」时输入**，由扩展通过 VS Code SecretStorage 安全存储，不会明文保存在 settings.json 中。推荐使用侧栏进行可视化管理；您也可以在设置 UI 中直接编辑此数组（点击「添加项」），但密码字段需在侧栏补录。",
           "items": {
             "type": "object",
             "properties": {
@@ -294,8 +294,16 @@
               "host": { "type": "string", "description": "主机地址" },
               "port": { "type": "number", "description": "端口" },
               "user": { "type": "string", "description": "用户名" },
-              "password": { "type": "string", "description": "密码" },
-              "database": { "type": "string", "description": "数据库/Schema 名" }
+              "password": { "type": "string", "description": "密码（请在侧栏输入，不会保存在 settings.json）" },
+              "database": { "type": "string", "description": "数据库/Schema 名" },
+              "driverPath": { "type": "string", "description": "驱动路径（可选），指向原生 Node.js 模块的绝对路径或包名" },
+              "options": {
+                "type": "object",
+                "description": "数据库特定选项（如 H2 的 jarPath）",
+                "properties": {
+                  "jarPath": { "type": "string", "description": "H2 JDBC jar 文件路径（仅 H2 需要）" }
+                }
+              }
             }
           }
         },

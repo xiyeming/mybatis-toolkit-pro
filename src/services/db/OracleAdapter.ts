@@ -1,5 +1,6 @@
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../../types';
 import { IDbAdapter } from './IDbAdapter';
+import { loadDriver } from '../../utils/DriverLoader';
 
 export class OracleAdapter implements IDbAdapter {
     private pool: any;
@@ -7,18 +8,14 @@ export class OracleAdapter implements IDbAdapter {
     private tableCache: Map<string, string> = new Map();
     private currentUser: string = '';
 
-    private async loadOracle(): Promise<any> {
+    private async loadOracle(config: ConnectionConfig): Promise<any> {
         if (this.oracledb) return this.oracledb;
-        try {
-            this.oracledb = await import('oracledb');
-            return this.oracledb;
-        } catch {
-            throw new Error('请先安装 oracledb 依赖: npm install oracledb');
-        }
+        this.oracledb = await loadDriver('oracledb', config.driverPath);
+        return this.oracledb;
     }
 
     async connect(config: ConnectionConfig): Promise<void> {
-        const oracledb = await this.loadOracle();
+        const oracledb = await this.loadOracle(config);
         const connectString = `${config.host}:${config.port}/${config.database}`;
         this.pool = await oracledb.createPool({
             user: config.user,

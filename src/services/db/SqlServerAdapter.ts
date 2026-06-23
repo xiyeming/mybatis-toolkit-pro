@@ -1,5 +1,6 @@
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../../types';
 import { IDbAdapter } from './IDbAdapter';
+import { loadDriver } from '../../utils/DriverLoader';
 
 /** SQL Server 适配器（基于 mssql） */
 export class SqlServerAdapter implements IDbAdapter {
@@ -7,18 +8,14 @@ export class SqlServerAdapter implements IDbAdapter {
     private mssql: any;
     private tableCache: Map<string, string> = new Map();
 
-    private async loadMssql(): Promise<any> {
+    private async loadMssql(config: ConnectionConfig): Promise<any> {
         if (this.mssql) return this.mssql;
-        try {
-            this.mssql = await import('mssql');
-            return this.mssql;
-        } catch {
-            throw new Error('请先安装 mssql 依赖: npm install mssql');
-        }
+        this.mssql = await loadDriver('mssql', config.driverPath);
+        return this.mssql;
     }
 
     async connect(config: ConnectionConfig): Promise<void> {
-        const mssql = await this.loadMssql();
+        const mssql = await this.loadMssql(config);
         this.pool = new mssql.ConnectionPool({
             server: config.host,
             port: config.port,

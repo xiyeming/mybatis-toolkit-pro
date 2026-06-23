@@ -1,5 +1,6 @@
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../../types';
 import { IDbAdapter } from './IDbAdapter';
+import { loadDriver } from '../../utils/DriverLoader';
 
 /** DB2 适配器（基于 ibm_db） */
 export class Db2Adapter implements IDbAdapter {
@@ -7,14 +8,10 @@ export class Db2Adapter implements IDbAdapter {
     private ibmdb: any;
     private tableCache: Map<string, string> = new Map();
 
-    private async loadIbmDb(): Promise<any> {
+    private async loadIbmDb(config: ConnectionConfig): Promise<any> {
         if (this.ibmdb) return this.ibmdb;
-        try {
-            this.ibmdb = await import('ibm_db');
-            return this.ibmdb;
-        } catch {
-            throw new Error('请先安装 ibm_db 依赖: npm install ibm_db');
-        }
+        this.ibmdb = await loadDriver('ibm_db', config.driverPath);
+        return this.ibmdb;
     }
 
     private buildConnStr(config: ConnectionConfig): string {
@@ -22,7 +19,7 @@ export class Db2Adapter implements IDbAdapter {
     }
 
     async connect(config: ConnectionConfig): Promise<void> {
-        const ibmdb = await this.loadIbmDb();
+        const ibmdb = await this.loadIbmDb(config);
         this.conn = ibmdb.openSync(this.buildConnStr(config));
     }
 

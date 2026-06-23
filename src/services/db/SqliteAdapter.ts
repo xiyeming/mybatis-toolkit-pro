@@ -1,5 +1,6 @@
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../../types';
 import { IDbAdapter } from './IDbAdapter';
+import { loadDriver } from '../../utils/DriverLoader';
 
 /** SQLite 适配器（基于 better-sqlite3） */
 export class SqliteAdapter implements IDbAdapter {
@@ -7,18 +8,14 @@ export class SqliteAdapter implements IDbAdapter {
     private sqlite: any;
     private tableCache: Map<string, string> = new Map();
 
-    private async loadSqlite(): Promise<any> {
+    private async loadSqlite(config: ConnectionConfig): Promise<any> {
         if (this.sqlite) return this.sqlite;
-        try {
-            this.sqlite = await import('better-sqlite3');
-            return this.sqlite;
-        } catch {
-            throw new Error('请先安装 better-sqlite3 依赖: npm install better-sqlite3');
-        }
+        this.sqlite = await loadDriver('better-sqlite3', config.driverPath);
+        return this.sqlite;
     }
 
     async connect(config: ConnectionConfig): Promise<void> {
-        const sqlite = await this.loadSqlite();
+        const sqlite = await this.loadSqlite(config);
         // database 字段作为文件路径；为空时使用内存数据库
         const path = config.database || ':memory:';
         this.db = new sqlite.default(path);

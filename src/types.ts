@@ -72,6 +72,10 @@ export interface ConnectionConfig {
     user: string;
     password?: string;
     database: string;
+    /** 原生驱动模块路径（如 /path/to/better-sqlite3），留空则使用默认模块名 */
+    driverPath?: string;
+    /** 数据库特定选项（如 H2 的 jarPath） */
+    options?: Record<string, any>;
 }
 
 export interface ColumnInfo {

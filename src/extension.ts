@@ -12,6 +12,7 @@ import { SqlDefinitionProvider } from './providers/SqlDefinitionProvider';
 import { PropertyDefinitionProvider } from './providers/PropertyDefinitionProvider';
 import { SchemaDocumentProvider } from './providers/SchemaDocumentProvider';
 import { DatabaseTreeDataProvider, ConnectionItem, TableItem } from './providers/DatabaseTreeDataProvider';
+import { ConnectionFormPanel } from './panels/ConnectionFormPanel';
 import { CodeGenerationService } from './services/CodeGenerationService';
 import { MethodSqlGenerator } from './services/MethodSqlGenerator';
 import { SqlHighlightingProvider, SQL_SEMANTIC_TOKEN_LEGEND } from './providers/SqlHighlightingProvider';
@@ -20,18 +21,6 @@ import { QueryResultsPanel } from './panels/QueryResultsPanel';
 import { QUERY_DEFAULT_MAX_ROWS } from './constants';
 import { QueryResult } from './types';
 import { getQueryResultDateFormats } from './config';
-
-/**
- * 解析并校验端口输入。返回有效端口号；无效时提示用户并返回 undefined。
- */
-async function parsePortInput(portStr: string): Promise<number | undefined> {
-    const port = parseInt(portStr, 10);
-    if (isNaN(port) || port < 1 || port > 65535) {
-        vscode.window.showErrorMessage('端口必须是 1-65535 之间的有效数字。');
-        return undefined;
-    }
-    return port;
-}
 
 // 在 deactivate 中需要释放的全局服务引用
 let indexerInstance!: ProjectIndexer;
@@ -167,121 +156,25 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('mybatisToolkit.addConnection', async () => {
-            const type = await vscode.window.showQuickPick(['MySQL', 'PostgreSQL', 'Oracle', 'SQL Server', 'SQLite', 'DB2', 'H2', 'MariaDB'], { placeHolder: '选择数据库类型' });
-            if (!type) return;
-
-            const host = await vscode.window.showInputBox({ prompt: '数据库主机', placeHolder: 'localhost', value: 'localhost' });
-            if (!host) return;
-            const portStr = await vscode.window.showInputBox({ prompt: '数据库端口', placeHolder: '3306', value: '3306' });
-            if (!portStr) return;
-            const port = await parsePortInput(portStr);
-            if (port === undefined) return;
-            const user = await vscode.window.showInputBox({ prompt: '数据库用户名', placeHolder: 'root', value: 'root' });
-            if (!user) return;
-            const password = await vscode.window.showInputBox({ prompt: '数据库密码', password: true });
-            if (password === undefined) return;
-            const database = await vscode.window.showInputBox({ prompt: '数据库名称' });
-            if (!database) return;
-
-            const config = {
-                id: Date.now().toString(),
-                name: database,
-                type: type as any,
-                host,
-                port,
-                user,
-                password,
-                database
-            };
-
-            await dbServiceInstance.addConnection(config);
-            // 可选：自动连接
-            // await dbServiceInstance.connect(config.id);
+            const config = await ConnectionFormPanel.createOrShow(context.extensionUri, dbServiceInstance, 'add');
+            if (config) {
+                await dbServiceInstance.addConnection(config);
+                vscode.window.showInformationMessage(`连接 "${config.name}" 已添加`);
+            }
         }),
         vscode.commands.registerCommand('mybatisToolkit.editConnection', async (item: ConnectionItem) => {
             if (!item || !item.config) return;
-            const oldConfig = item.config;
-
-            const dbTypes: vscode.QuickPickItem[] = ['MySQL', 'PostgreSQL', 'Oracle', 'SQL Server', 'SQLite', 'DB2', 'H2', 'MariaDB'].map(label => ({ label }));
-            const selectedTypeItem = await vscode.window.showQuickPick(
-                dbTypes,
-                {
-                    // 预选与 oldConfig.type 匹配的项
-                    // 注意：'selection' 在简单的 showQuickPick 用法中可能不直接受支持，而不保留引用？
-                    // 实际上，对于简单的项目，showQuickPick 不容易在选项中接受 'selection'。
-                    // 为了预选，我们通常需要将其分开或仅依赖用户挑选。
-                    // 但是等等，之前的代码通过了 `selection: [oldConfig.type]`。
-                    // 让我们删除 'selection' 并依赖用户知道它是什么（也许放在占位符中？）
-                    placeHolder: `选择数据库类型 (当前: ${oldConfig.type})`
+            const config = await ConnectionFormPanel.createOrShow(context.extensionUri, dbServiceInstance, 'edit', item.config);
+            if (config) {
+                await dbServiceInstance.updateConnection(config);
+                if (item.isActive) {
+                    const reload = await vscode.window.showInformationMessage('连接配置已更新。是否重新连接？', '是', '否');
+                    if (reload === '是') {
+                        await dbServiceInstance.connect(config.id);
+                    }
+                } else {
+                    vscode.window.showInformationMessage(`连接 ${config.name} 已更新。`);
                 }
-            );
-            if (!selectedTypeItem) return;
-            const type = selectedTypeItem.label;
-
-            const host = await vscode.window.showInputBox({
-                prompt: '数据库主机',
-                placeHolder: 'localhost',
-                value: oldConfig.host
-            });
-            if (!host) return;
-
-            const portStr = await vscode.window.showInputBox({
-                prompt: '数据库端口',
-                placeHolder: '3306',
-                value: oldConfig.port.toString()
-            });
-            if (!portStr) return;
-            const port = await parsePortInput(portStr);
-            if (port === undefined) return;
-
-            const user = await vscode.window.showInputBox({
-                prompt: '数据库用户名',
-                placeHolder: 'root',
-                value: oldConfig.user
-            });
-            if (!user) return;
-
-            // 密码：留空以保持不变？还是显示 '***'？
-            // 如果为空，用户可能意味着空密码或“不更改”。
-            // 让我们通过占位符/提示解释来询问。
-            // "留空以保持现有密码"
-            const password = await vscode.window.showInputBox({
-                prompt: '数据库密码 (留空则保持不变)',
-                password: true,
-                placeHolder: '******'
-            });
-
-            // 如果密码未定义 (Esc)，取消。如果为空字符串，保留旧的？
-            // 实际上标准 InputBox 在 Esc 上返回 undefined，在 Enter 且无内容时返回空字符串。
-            if (password === undefined) return;
-            const finalPassword = password === '' ? oldConfig.password : password;
-
-            const database = await vscode.window.showInputBox({
-                prompt: '数据库名称',
-                value: oldConfig.database
-            });
-            if (!database) return;
-
-            const newConfig = {
-                ...oldConfig,
-                name: database, // 通常名称默认为数据库名称或用户自定义？
-                // 如果我们想要自定义名称，我们需要另一个输入。目前保持简单：名称 = 数据库
-                type: type as any,
-                host,
-                port,
-                user,
-                password: finalPassword,
-                database
-            };
-
-            await dbServiceInstance.updateConnection(newConfig);
-            if (item.isActive) {
-                const reload = await vscode.window.showInformationMessage('连接配置已更新。是否重新连接？', '是', '否');
-                if (reload === '是') {
-                    await dbServiceInstance.connect(newConfig.id);
-                }
-            } else {
-                vscode.window.showInformationMessage(`连接 ${newConfig.name} 已更新。`);
             }
         }),
         vscode.commands.registerCommand('mybatisToolkit.removeConnection', async (item: ConnectionItem) => {

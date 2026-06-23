@@ -253,6 +253,21 @@ export class DatabaseService {
         return this.activeAdapter.executeSql(sql, maxRows);
     }
 
+    public async testConnection(config: ConnectionConfig): Promise<{ success: boolean; message: string }> {
+        let adapter: IDbAdapter | undefined;
+        try {
+            adapter = createDbAdapter(config);
+            await adapter.connect(config);
+            await adapter.disconnect();
+            return { success: true, message: `连接成功 (${config.host}:${config.port}/${config.database})` };
+        } catch (error: any) {
+            if (adapter) {
+                try { await adapter.disconnect(); } catch { /* ignore cleanup errors */ }
+            }
+            return { success: false, message: error.message || String(error) };
+        }
+    }
+
     /** 释放数据库连接与事件发射器 */
     public async dispose(): Promise<void> {
         await this.disconnect();

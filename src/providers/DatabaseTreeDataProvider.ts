@@ -21,8 +21,10 @@ export class DatabaseTreeDataProvider implements vscode.TreeDataProvider<Databas
 
     async getChildren(element?: DatabaseTreeItem): Promise<DatabaseTreeItem[]> {
         if (!element) {
-            // 根节点：列出连接
             const connections = this.dbService.getConnections();
+            if (connections.length === 0) {
+                return [new AddConnectionPrompt()];
+            }
             return connections.map(c => {
                 const isActive = this.dbService.getActiveConnectionId() === c.id;
                 return new ConnectionItem(c, isActive, this.dbService.isConnected() && isActive);
@@ -129,5 +131,17 @@ class InfoItem extends DatabaseTreeItem {
     constructor(label: string) {
         super(label, vscode.TreeItemCollapsibleState.None);
         this.contextValue = 'info';
+    }
+}
+
+class AddConnectionPrompt extends DatabaseTreeItem {
+    constructor() {
+        super('点击添加数据库连接', vscode.TreeItemCollapsibleState.None);
+        this.contextValue = 'addConnectionPrompt';
+        this.iconPath = new vscode.ThemeIcon('add');
+        this.command = {
+            command: 'mybatisToolkit.addConnection',
+            title: '添加连接'
+        };
     }
 }

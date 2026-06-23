@@ -1,5 +1,6 @@
 import { ColumnInfo, ConnectionConfig, QueryResult } from '../../types';
 import { IDbAdapter } from './IDbAdapter';
+import { loadDriver } from '../../utils/DriverLoader';
 
 /**
  * H2 适配器（基于 jdbc + H2 JDBC 驱动）。
@@ -15,15 +16,12 @@ export class H2Adapter implements IDbAdapter {
     private tableCache: Map<string, string> = new Map();
     private pkCache: Map<string, Set<string>> = new Map();
 
-    private async loadJdbc(): Promise<{ jdbc: any; jinst: any }> {
+    private async loadJdbc(config: ConnectionConfig): Promise<{ jdbc: any; jinst: any }> {
         if (this.jdbc && this.jinst) return { jdbc: this.jdbc, jinst: this.jinst };
-        try {
-            this.jdbc = await import('jdbc');
-            this.jinst = await import('jdbc/lib/jinst');
-            return { jdbc: this.jdbc, jinst: this.jinst };
-        } catch {
-            throw new Error('请先安装 jdbc 依赖: npm install jdbc');
-        }
+        const base = config.driverPath || 'jdbc';
+        this.jdbc = await loadDriver('jdbc', base);
+        this.jinst = await loadDriver('jdbc/lib/jinst', `${base}/lib/jinst`);
+        return { jdbc: this.jdbc, jinst: this.jinst };
     }
 
     private setupClasspath(jinst: any, jarPath: string): void {
@@ -34,7 +32,7 @@ export class H2Adapter implements IDbAdapter {
     }
 
     async connect(config: ConnectionConfig): Promise<void> {
-        const { jdbc, jinst } = await this.loadJdbc();
+        const { jdbc, jinst } = await this.loadJdbc(config);
         const jarPath = (config as any).options?.jarPath;
         if (!jarPath) {
             throw new Error('H2 连接需要配置 options.jarPath（H2 JDBC jar 路径），例如 "./drivers/h2-2.2.224.jar"');
