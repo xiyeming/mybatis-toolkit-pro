@@ -24,6 +24,10 @@
 - **XML 属性解析**：`SqlValidationProvider.getAttribute()` 正确解析含转义实体与不同引号类型的属性值。
 - **类型安全**：`DatabaseTreeDataProvider.ColumnItem` 使用 `ColumnInfo` 替代 `any`。
 
+### 新增
+
+- **GitHub Actions 自动发布 Release**：推送 `v*` 标签时自动打包扩展并创建 GitHub Release，上传 `.vsix` 作为发布资产。
+
 ### 优化
 
 - **索引并发与大文件保护**：`ProjectIndexer` 使用受控并发 worker 池解析文件，并跳过超过 500KB 的超大文件；`ProjectIndexer` 单例支持 `destroyInstance()` 重置。
