@@ -30,10 +30,13 @@ module.exports = {
         ]
     },
     externals: {
-        vscode: 'commonjs vscode', // Ignored because it's provided by the VS Code host
-        // mysql2 might have optional dependencies like 'aws-crt' which cause warnings if not present.
-        // We can mark them as external if they cause issues, or let webpack handle them.
-        // For now, let's try bundling mysql2.
+        vscode: 'commonjs vscode',
+        // 可选数据库驱动按运行时动态加载，不参与打包
+        mssql: 'commonjs mssql',
+        'better-sqlite3': 'commonjs better-sqlite3',
+        'ibm_db': 'commonjs ibm_db',
+        jdbc: 'commonjs jdbc',
+        'jdbc/lib/jinst': 'commonjs jdbc/lib/jinst'
     },
     performance: {
         hints: false
